@@ -15,7 +15,14 @@ This is a **3D printing project repository** containing parametric designs and p
 
 ```
 print-files/
-├── README.md                      # Minimal project documentation (14 bytes)
+├── README.md                      # Minimal project documentation
+├── CLAUDE.md                      # AI assistant guide (this file)
+├── .github/
+│   └── workflows/
+│       └── generate-stl-png.yml   # Automated STL/PNG generation
+├── scripts/
+│   ├── generate-exports.sh        # Local automation script
+│   └── README.md                  # Scripts documentation
 ├── eB fan Shroud/                 # Complete fan shroud design with LED fixture
 │   ├── eB fan shroud with 5mm straw hat fixture.stl  (953 KB)
 │   ├── eB fan shroud with 5mm straw hat fixture.png  (53 KB preview)
@@ -121,6 +128,45 @@ print-files/
    - Check file size (should be reasonable)
    - Open in slicer software to verify manifold geometry
 6. **Commit both source and export** together
+
+### Workflow 4: Automated Export (Recommended)
+
+**Use the automated tools instead of manual export!**
+
+This repository includes automation to generate STL and PNG files from SCAD sources:
+
+#### Option A: Local Script (Immediate)
+```bash
+# Generate exports for all .scad files
+./scripts/generate-exports.sh
+
+# Generate exports for specific file
+./scripts/generate-exports.sh spigen-pd2101-mount/spigen-pd2101-mount.scad
+```
+
+**Requirements:** OpenSCAD must be installed locally
+**Output:** Creates `.stl` and `.png` files next to each `.scad` file
+
+#### Option B: GitHub Actions (Automatic)
+Simply push your `.scad` file changes to GitHub:
+```bash
+git add myproject/mydesign.scad
+git commit -m "Update design parameters"
+git push
+```
+
+The GitHub Actions workflow will automatically:
+1. Detect the changed `.scad` file
+2. Generate STL and PNG files
+3. Commit and push them back to the repository
+
+**Manual trigger:** Go to Actions tab → "Generate STL and PNG from SCAD files" → "Run workflow"
+
+**Benefits:**
+- No need to manually export before committing
+- Ensures consistency (same OpenSCAD version for all exports)
+- Works even if you don't have OpenSCAD installed locally
+- Automatic PNG previews with optimal camera angles
 
 ---
 
@@ -352,9 +398,34 @@ git add [file].scad
 git commit -m "Update [component] dimensions for better fit"
 ```
 
-### Task 3: Export and Add STL
+### Task 3: Generate STL and PNG (Automated - Recommended)
 
 ```bash
+# Option A: Use local automation script (if user has OpenSCAD)
+./scripts/generate-exports.sh path/to/file.scad
+
+# Review generated files
+ls -lh path/to/
+
+# Commit all files together
+git add path/to/
+git commit -m "Add [component] with generated exports"
+git push
+
+# Option B: Let GitHub Actions do it (if user doesn't have OpenSCAD)
+# Just commit the .scad file
+git add path/to/file.scad
+git commit -m "Add [component] design"
+git push
+
+# Inform user: "GitHub Actions will automatically generate STL and PNG files.
+# Wait 2-3 minutes, then run 'git pull' to get the generated files."
+```
+
+### Task 3b: Manual Export (Legacy - Not Recommended)
+
+```bash
+# Only use if automation is unavailable
 # 1. Instruct user to:
 #    - Open .scad in OpenSCAD
 #    - Render (F6)
@@ -427,6 +498,149 @@ Most designs assume:
 - **MeshLab/Blender:** Advanced STL editing/repair
 - **Image editor:** Creating/editing preview images
 - **Calipers:** Measuring physical dimensions
+
+---
+
+## Automation Infrastructure
+
+This repository includes automated tools to generate STL and PNG files from OpenSCAD sources, eliminating manual export steps and ensuring consistency.
+
+### Local Automation Script
+
+**Location:** `scripts/generate-exports.sh`
+
+**What it does:**
+- Finds all `.scad` files in the repository
+- Generates binary STL files (ready for 3D printing)
+- Creates PNG preview images (1024x768, orthographic view)
+- Processes files in parallel for efficiency
+
+**Usage:**
+```bash
+# Process all .scad files
+./scripts/generate-exports.sh
+
+# Process specific file(s)
+./scripts/generate-exports.sh path/to/file.scad
+```
+
+**Requirements:**
+- OpenSCAD installed locally
+- macOS: `brew install openscad`
+- Ubuntu: `sudo apt-get install openscad`
+- Windows: Download from openscad.org
+
+**Output format:**
+- STL: Binary format, production-ready
+- PNG: 1024x768px, ortho projection, Tomorrow color scheme
+- Both files created in same directory as source `.scad`
+
+### GitHub Actions Workflow
+
+**Location:** `.github/workflows/generate-stl-png.yml`
+
+**Triggers:**
+- Automatically when `.scad` files are pushed
+- Manually via Actions tab → "Run workflow"
+
+**What it does:**
+1. Detects all `.scad` files in repository
+2. Installs OpenSCAD in CI environment
+3. Generates STL and PNG for each file
+4. Commits generated files back to repository
+5. Skips CI on auto-commits (prevents loops)
+
+**Benefits:**
+- **No local OpenSCAD needed:** Contributors can edit `.scad` files without installing OpenSCAD
+- **Consistency:** Same OpenSCAD version used for all exports
+- **Automatic previews:** PNG images always up-to-date
+- **Time-saving:** No manual export workflow needed
+- **Version control:** Generated files tracked in git history
+
+**Workflow details:**
+```yaml
+Trigger: Push to *.scad files
+Job: generate-files
+  1. Checkout repository
+  2. Find all .scad files
+  3. Install OpenSCAD + xvfb (headless rendering)
+  4. Generate STL and PNG for each file
+  5. Commit changes (if any)
+  6. Push back to same branch
+```
+
+**Manual trigger:**
+1. Navigate to repository on GitHub
+2. Click "Actions" tab
+3. Select "Generate STL and PNG from SCAD files"
+4. Click "Run workflow"
+5. Choose branch and confirm
+
+**Customizing PNG output:**
+
+Edit `.github/workflows/generate-stl-png.yml` to change preview settings:
+
+```yaml
+--imgsize=1024,768          # Image dimensions
+--projection=ortho          # ortho or perspective
+--colorscheme=Tomorrow      # Color scheme
+--camera=0,0,0,60,0,25,500  # Camera position and angle
+```
+
+### Best Practices with Automation
+
+**Do:**
+- ✅ Commit `.scad` source files first
+- ✅ Let automation generate STL/PNG (don't commit manual exports)
+- ✅ Review auto-generated files after workflow completes
+- ✅ Pull latest changes after GitHub Actions runs
+- ✅ Use local script for quick iteration during development
+
+**Don't:**
+- ❌ Manually export and commit STL/PNG alongside `.scad` changes
+- ❌ Edit generated files directly (changes will be overwritten)
+- ❌ Commit large STL files if `.scad` source is available
+- ❌ Ignore workflow failures (check Actions tab for errors)
+
+### Workflow Integration
+
+**Typical development flow:**
+
+```bash
+# 1. Make changes to SCAD file
+vim myproject/design.scad
+
+# 2. Test locally (optional but recommended)
+./scripts/generate-exports.sh myproject/design.scad
+
+# 3. Review generated STL/PNG
+# Open in slicer or image viewer
+
+# 4. Commit and push SCAD source
+git add myproject/design.scad
+git commit -m "Adjust wall thickness for better strength"
+git push
+
+# 5. GitHub Actions automatically generates STL/PNG
+# Wait ~2-3 minutes for workflow to complete
+
+# 6. Pull generated files
+git pull
+
+# 7. Verify auto-generated exports
+ls -lh myproject/
+```
+
+**For urgent local testing:**
+```bash
+# Generate and test immediately without waiting for CI
+./scripts/generate-exports.sh myproject/design.scad
+# Test the STL in your slicer
+# When satisfied, commit everything together
+git add myproject/
+git commit -m "Update design with tested exports"
+git push
+```
 
 ---
 
