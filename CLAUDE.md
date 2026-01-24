@@ -2,11 +2,14 @@
 
 ## Repository Overview
 
-This is a **3D printing project repository** containing parametric designs and pre-generated 3D model files for custom accessories and mounts. The repository serves as a portfolio of reusable 3D printable designs with a mix of parametric source files (OpenSCAD) and production-ready models (STL).
+This is a **3D printing project repository** containing parametric designs and pre-generated 3D model files for custom accessories and mounts. The repository serves as a collection of reusable 3D printable designs with a mix of parametric source files (OpenSCAD) and production-ready models (STL).
+
+The repository includes an **interactive web gallery** hosted on GitHub Pages for showcasing designs with 3D model viewing, source code browsing, and direct downloads.
 
 **Repository Type:** Personal/hobby 3D printing project collection
-**Primary Languages:** OpenSCAD (parametric modeling), Binary STL (3D models)
+**Primary Languages:** OpenSCAD (parametric modeling), Binary STL (3D models), HTML/CSS/JavaScript (web gallery)
 **Version Control:** Git
+**Web Gallery:** https://stevendejongnl.github.io/print-files/
 **Last Updated:** January 2026
 
 ---
@@ -15,11 +18,21 @@ This is a **3D printing project repository** containing parametric designs and p
 
 ```
 print-files/
-├── README.md                      # Minimal project documentation
+├── README.md                      # Project documentation
 ├── CLAUDE.md                      # AI assistant guide (this file)
+├── docs/                          # Web gallery (GitHub Pages)
+│   ├── index.html                 # Interactive 3D model viewer
+│   ├── projects.json              # Auto-generated project metadata
+│   ├── README.md                  # Web gallery documentation
+│   ├── .nojekyll                  # Disables Jekyll processing
+│   └── projects/                  # Synced copies of project files
+│       ├── eB fan Shroud/
+│       ├── led-grill/
+│       └── spigen-pd2101-mount/
 ├── .github/
 │   └── workflows/
-│       └── generate-stl-png.yml   # Automated STL/PNG generation
+│       ├── generate-stl-png.yml   # Automated STL/PNG generation
+│       └── sync-web-gallery.yml   # Auto-sync web gallery
 ├── scripts/
 │   ├── generate-exports.sh        # Local automation script
 │   └── README.md                  # Scripts documentation
@@ -30,7 +43,9 @@ print-files/
 ├── led-grill/                     # LED grill cover design
 │   └── cover.stl                  (21 KB)
 └── spigen-pd2101-mount/           # Vertical charger mount (active development)
-    └── spigen-pd2101-mount.scad   (2.7 KB parametric source)
+    ├── spigen-pd2101-mount.scad   (2.7 KB parametric source)
+    ├── spigen-pd2101-mount.stl    (auto-generated)
+    └── spigen-pd2101-mount.png    (auto-generated)
 ```
 
 ### Directory Organization
@@ -84,6 +99,171 @@ print-files/
 
 **Purpose:** Indicates publicly shareable designs
 **Usage:** Empty file serving as metadata flag
+
+---
+
+## Web Gallery
+
+This repository includes an **interactive web-based gallery** hosted on GitHub Pages for showcasing 3D designs.
+
+**Live Gallery:** https://stevendejongnl.github.io/print-files/
+
+### Features
+
+1. **Interactive 3D Viewer**
+   - Built with Three.js and STLLoader
+   - Rotate, zoom, and pan 3D models in the browser
+   - Wireframe toggle mode
+   - Camera reset controls
+   - OrbitControls for intuitive navigation
+
+2. **Preview Image Viewer**
+   - Display PNG renderings of models
+   - Full-screen modal view
+   - High-quality previews
+
+3. **Source Code Viewer**
+   - Browse OpenSCAD source code
+   - Syntax highlighting with Prism.js
+   - Readable code formatting
+   - Direct download links
+
+4. **Project Metadata**
+   - Auto-generated from repository contents
+   - Public/private badges
+   - File type indicators (STL, SCAD, PNG)
+   - Category organization
+
+### Technology Stack
+
+- **Frontend:** Pure HTML/CSS/JavaScript (no build step)
+- **3D Rendering:** Three.js r128
+- **STL Loading:** Three.js STLLoader
+- **Camera Controls:** Three.js OrbitControls
+- **Syntax Highlighting:** Prism.js
+- **Hosting:** GitHub Pages (from `/docs` folder)
+
+### File Structure
+
+```
+docs/
+├── index.html         # Main gallery interface
+├── projects.json      # Auto-generated project metadata
+├── README.md          # Gallery documentation
+├── .nojekyll          # Disables Jekyll processing for GitHub Pages
+└── projects/          # Synced project files (auto-updated)
+    └── [project-name]/
+        ├── *.stl
+        ├── *.png
+        └── *.scad
+```
+
+### Automatic Synchronization
+
+The web gallery is **automatically synchronized** via GitHub Actions:
+
+**Workflow:** `.github/workflows/sync-web-gallery.yml`
+
+**Triggers:**
+- Any push to `.stl`, `.png`, `.scad` files
+- Changes to `.public` marker files
+- Manual workflow dispatch
+
+**Actions:**
+1. Syncs all project files to `docs/projects/`
+2. Generates `projects.json` with metadata
+3. Commits and pushes changes automatically
+
+**This means:**
+- ✅ No manual copying of files to `docs/`
+- ✅ No manual editing of `projects.json`
+- ✅ Gallery stays in sync with repository automatically
+
+### Adding Projects to Gallery
+
+Simply add your 3D files to the repository root:
+
+```bash
+# Add new project
+mkdir my-new-design/
+# Add .scad, .stl, .png files
+git add my-new-design/
+git commit -m "Add new design"
+git push
+
+# Wait 2-3 minutes for automation
+# Gallery automatically updates!
+```
+
+To mark a project as public (shareable):
+
+```bash
+touch my-new-design/.public
+git add my-new-design/.public
+git commit -m "Mark design as public"
+git push
+```
+
+### Customizing the Gallery
+
+**To modify gallery appearance:**
+Edit `docs/index.html` - CSS variables are defined in `:root`:
+
+```css
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2c3e50;
+    --accent-color: #e74c3c;
+    /* ... etc */
+}
+```
+
+**To customize project metadata:**
+Projects are auto-generated, but you can manually edit `docs/projects.json`:
+
+```json
+{
+  "name": "Project Name",
+  "description": "Project description",
+  "stl": "projects/folder/file.stl",
+  "preview": "projects/folder/file.png",
+  "scad": "projects/folder/file.scad",
+  "isPublic": true,
+  "category": "Category Name"
+}
+```
+
+Note: Manual edits to `projects.json` will be overwritten by the sync workflow.
+
+### Local Testing
+
+To test the gallery locally before deploying:
+
+```bash
+cd docs
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+Or use Node.js:
+
+```bash
+npx http-server docs -p 8000
+```
+
+### GitHub Pages Setup
+
+The gallery is configured for GitHub Pages deployment:
+
+1. **Repository Settings → Pages**
+2. **Source:** Deploy from a branch
+3. **Branch:** `main`
+4. **Folder:** `/docs`
+5. **Save**
+
+The site will be available at: `https://[username].github.io/[repository-name]/`
+
+**Note:** GitHub Pages requires a **public repository** on free tier.
 
 ---
 
@@ -418,8 +598,12 @@ git add path/to/file.scad
 git commit -m "Add [component] design"
 git push
 
-# Inform user: "GitHub Actions will automatically generate STL and PNG files.
-# Wait 2-3 minutes, then run 'git pull' to get the generated files."
+# Inform user: "GitHub Actions will automatically:
+# 1. Generate STL and PNG files
+# 2. Sync files to web gallery (docs/projects/)
+# 3. Update projects.json
+# Wait 3-5 minutes, then run 'git pull' to get the updates.
+# Check the web gallery at: https://[username].github.io/[repo-name]/"
 ```
 
 ### Task 3b: Manual Export (Legacy - Not Recommended)
@@ -443,6 +627,39 @@ git commit -m "Add exported STL for [component]"
 # 3. Document print settings if known
 git add README.md [preview-images]
 git commit -m "Update documentation with [details]"
+```
+
+### Task 5: Mark Design as Public and Shareable
+
+```bash
+# 1. Add .public marker to project directory
+touch myproject/.public
+
+# 2. Commit and push
+git add myproject/.public
+git commit -m "Mark [project] as public shareable design"
+git push
+
+# 3. Inform user: "The web gallery will automatically update to show
+# the 'Public' badge on this project. Wait 2-3 minutes, then check:
+# https://[username].github.io/[repo-name]/"
+```
+
+### Task 6: Verify Web Gallery
+
+```bash
+# After pushing changes, verify the web gallery is updated:
+# 1. Wait 3-5 minutes for GitHub Actions to complete
+# 2. Check Actions tab for workflow status
+# 3. Pull latest changes: git pull
+# 4. Verify files in docs/projects/[project-name]/
+# 5. Check live gallery: https://[username].github.io/[repo-name]/
+
+# If gallery is not updating:
+# - Check GitHub Pages is enabled (Settings → Pages)
+# - Source should be: main branch, /docs folder
+# - Check workflow logs in Actions tab
+# - Manually trigger "Sync Web Gallery" workflow if needed
 ```
 
 ---
@@ -587,17 +804,75 @@ Edit `.github/workflows/generate-stl-png.yml` to change preview settings:
 --camera=0,0,0,60,0,25,500  # Camera position and angle
 ```
 
+### Web Gallery Sync Workflow
+
+**Location:** `.github/workflows/sync-web-gallery.yml`
+
+**Triggers:**
+- Any push to `.stl`, `.png`, `.scad` files
+- Changes to `.public` marker files
+- Manually via Actions tab → "Run workflow"
+
+**What it does:**
+1. Syncs all project files from repository root to `docs/projects/`
+2. Auto-generates `projects.json` metadata from repository contents
+3. Commits and pushes changes to the gallery
+4. Updates web gallery automatically
+
+**Benefits:**
+- **No manual copying:** Project files automatically synced to docs/
+- **No manual JSON editing:** Metadata generated from file system
+- **Always up-to-date:** Gallery reflects current repository state
+- **Automatic discovery:** New projects appear automatically
+
+**Workflow details:**
+```yaml
+Trigger: Push to *.stl, *.png, *.scad, .public files
+Job: sync-gallery
+  1. Checkout repository
+  2. Remove old docs/projects/ directory
+  3. Find all project directories in repository
+  4. Copy project files to docs/projects/
+  5. Generate projects.json from discovered files
+  6. Commit changes (if any)
+  7. Push back to same branch
+```
+
+**Generated metadata:**
+The workflow automatically creates `projects.json` entries:
+- Discovers project name from directory
+- Finds STL, PNG, and SCAD files
+- Detects `.public` marker for public badge
+- Creates relative paths for web access
+
+**Manual trigger:**
+1. Navigate to repository on GitHub
+2. Click "Actions" tab
+3. Select "Sync Web Gallery"
+4. Click "Run workflow"
+5. Choose branch and confirm
+
+**Important notes:**
+- Manual edits to `docs/projects.json` will be overwritten
+- Files are synced from repository root to `docs/projects/`
+- Both workflows work together: STL generation → Gallery sync
+- Workflow includes `[skip ci]` to prevent infinite loops
+
 ### Best Practices with Automation
 
 **Do:**
 - ✅ Commit `.scad` source files first
 - ✅ Let automation generate STL/PNG (don't commit manual exports)
+- ✅ Let automation sync files to docs/ (don't manually copy)
 - ✅ Review auto-generated files after workflow completes
 - ✅ Pull latest changes after GitHub Actions runs
 - ✅ Use local script for quick iteration during development
+- ✅ Add `.public` marker to shareable designs
 
 **Don't:**
 - ❌ Manually export and commit STL/PNG alongside `.scad` changes
+- ❌ Manually copy files to `docs/projects/` directory
+- ❌ Manually edit `docs/projects.json` (will be overwritten)
 - ❌ Edit generated files directly (changes will be overwritten)
 - ❌ Commit large STL files if `.scad` source is available
 - ❌ Ignore workflow failures (check Actions tab for errors)
@@ -621,14 +896,18 @@ git add myproject/design.scad
 git commit -m "Adjust wall thickness for better strength"
 git push
 
-# 5. GitHub Actions automatically generates STL/PNG
-# Wait ~2-3 minutes for workflow to complete
+# 5. GitHub Actions automatically:
+#    - Generates STL/PNG from SCAD (workflow 1)
+#    - Syncs files to docs/projects/ (workflow 2)
+#    - Updates projects.json (workflow 2)
+# Wait ~3-5 minutes for both workflows to complete
 
-# 6. Pull generated files
+# 6. Pull generated files and gallery updates
 git pull
 
-# 7. Verify auto-generated exports
+# 7. Verify auto-generated exports and web gallery
 ls -lh myproject/
+# Check: https://[username].github.io/[repo-name]/
 ```
 
 **For urgent local testing:**
@@ -759,19 +1038,32 @@ $fs = 2;             // Minimum size
 ### Periodic Tasks
 
 - **Review and update README.md** with project descriptions
+- **Verify web gallery** is displaying projects correctly
 - **Clean up obsolete designs** or move to archive
 - **Update preview images** for modified designs
 - **Document successful print settings** in comments
 - **Tag stable releases** for major design milestones
+- **Monitor GitHub Actions workflows** for failures
+- **Check GitHub Pages deployment** status
+
+### Implemented Features
+
+✅ **Completed:**
+- Interactive web gallery with 3D viewer
+- Automatic STL/PNG generation from SCAD
+- Automatic web gallery synchronization
+- Detailed README.md and CLAUDE.md documentation
 
 ### Future Improvements
 
 Consider adding:
-- Detailed README.md with project gallery
 - Print settings documentation per project
 - Assembly instructions for complex designs
 - BOM (Bill of Materials) for hardware requirements
-- License information (Creative Commons, GPL, etc.)
+- License information per project (Creative Commons, GPL, etc.)
+- Project categories and filtering in web gallery
+- Search functionality in web gallery
+- User comments or feedback system
 
 ---
 
