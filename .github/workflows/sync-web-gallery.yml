@@ -1,0 +1,159 @@
+name: Sync Web Gallery
+
+on:
+  push:
+    paths:
+      - '**/*.stl'
+      - '**/*.png'
+      - '**/*.scad'
+      - '.public'
+      - '**/.public'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-gallery:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync project files to docs/projects/
+        run: |
+          echo "Syncing project files to docs/projects/..."
+
+          # Remove old projects folder and recreate
+          rm -rf docs/projects
+          mkdir -p docs/projects
+
+          # Find all project directories (those containing .stl, .scad, or .png files)
+          find . -maxdepth 2 -type f \( -name "*.stl" -o -name "*.scad" -o -name "*.png" \) \
+            -not -path "./docs/*" \
+            -not -path "./.git/*" | while read -r file; do
+
+            dir=$(dirname "$file")
+            project_name=$(basename "$dir")
+
+            # Skip if already in root directory
+            if [ "$dir" = "." ]; then
+              continue
+            fi
+
+            # Create project directory in docs
+            mkdir -p "docs/projects/$project_name"
+
+            # Copy all relevant files
+            cp -r "$dir"/*.stl "docs/projects/$project_name/" 2>/dev/null || true
+            cp -r "$dir"/*.png "docs/projects/$project_name/" 2>/dev/null || true
+            cp -r "$dir"/*.scad "docs/projects/$project_name/" 2>/dev/null || true
+            cp -r "$dir"/.public "docs/projects/$project_name/" 2>/dev/null || true
+
+            echo "  ✓ Synced: $project_name"
+          done
+
+      - name: Generate projects.json
+        run: |
+          echo "Generating projects.json..."
+
+          # Start JSON array
+          echo "[" > docs/projects.json
+
+          first=true
+
+          # Find all project directories in docs/projects
+          find docs/projects -mindepth 1 -maxdepth 1 -type d | sort | while read -r project_dir; do
+            project_name=$(basename "$project_dir")
+
+            # Find files in this project
+            stl_file=$(find "$project_dir" -maxdepth 1 -name "*.stl" | head -n 1)
+            png_file=$(find "$project_dir" -maxdepth 1 -name "*.png" | head -n 1)
+            scad_file=$(find "$project_dir" -maxdepth 1 -name "*.scad" | head -n 1)
+            public_marker=$(find "$project_dir" -maxdepth 1 -name ".public")
+
+            # Convert absolute paths to relative paths from docs/
+            stl_rel=""
+            png_rel=""
+            scad_rel=""
+            if [ -n "$stl_file" ]; then
+              stl_rel=$(echo "$stl_file" | sed 's|docs/||')
+            fi
+            if [ -n "$png_file" ]; then
+              png_rel=$(echo "$png_file" | sed 's|docs/||')
+            fi
+            if [ -n "$scad_file" ]; then
+              scad_rel=$(echo "$scad_file" | sed 's|docs/||')
+            fi
+
+            # Determine if public
+            is_public="false"
+            if [ -n "$public_marker" ]; then
+              is_public="true"
+            fi
+
+            # Skip if no files found
+            if [ -z "$stl_file" ] && [ -z "$scad_file" ]; then
+              continue
+            fi
+
+            # Add comma if not first entry
+            if [ "$first" = false ]; then
+              echo "," >> docs/projects.json
+            fi
+            first=false
+
+            # Generate JSON entry
+            cat >> docs/projects.json <<EOF
+  {
+    "name": "$project_name",
+    "description": "3D printable design",
+    "stl": ${stl_rel:+\"$stl_rel\"}${stl_rel:-null},
+    "preview": ${png_rel:+\"$png_rel\"}${png_rel:-null},
+    "scad": ${scad_rel:+\"$scad_rel\"}${scad_rel:-null},
+    "isPublic": $is_public,
+    "category": "3D Prints"
+  }
+EOF
+          done
+
+          # Close JSON array
+          echo "" >> docs/projects.json
+          echo "]" >> docs/projects.json
+
+          echo "✓ projects.json generated"
+          echo ""
+          echo "Generated content:"
+          cat docs/projects.json
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          git add docs/
+
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to gallery"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Gallery changes detected:"
+            git diff --cached --name-status
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Auto-sync web gallery
+
+          - Sync project files to docs/projects/
+          - Auto-generate projects.json
+
+          [skip ci]"
+
+          git push origin HEAD:${{ github.ref_name }}
