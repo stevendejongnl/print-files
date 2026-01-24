@@ -1,0 +1,113 @@
+name: Generate STL and PNG from SCAD files
+
+on:
+  push:
+    paths:
+      - '**/*.scad'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  generate-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better git operations
+
+      - name: Find all SCAD files
+        id: find-scad
+        run: |
+          # Find all .scad files in the repository
+          scad_files=$(find . -name "*.scad" -not -path "./.git/*" | sed 's|^\./||')
+          echo "Found SCAD files:"
+          echo "$scad_files"
+          # Convert to JSON array for matrix
+          scad_json=$(echo "$scad_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "scad_files=$scad_json" >> $GITHUB_OUTPUT
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad xvfb
+          openscad --version
+
+      - name: Generate STL and PNG files
+        run: |
+          # Read the SCAD files list
+          scad_files='${{ steps.find-scad.outputs.scad_files }}'
+
+          # Process each SCAD file
+          echo "$scad_files" | jq -r '.[]' | while read -r scad_file; do
+            if [ -f "$scad_file" ]; then
+              echo "Processing: $scad_file"
+
+              # Get directory and base filename
+              dir=$(dirname "$scad_file")
+              base=$(basename "$scad_file" .scad)
+
+              # Output files
+              stl_file="$dir/$base.stl"
+              png_file="$dir/$base.png"
+
+              # Generate STL file
+              echo "  Generating STL: $stl_file"
+              openscad -o "$stl_file" "$scad_file"
+
+              if [ -f "$stl_file" ]; then
+                echo "  ✓ STL generated successfully"
+                ls -lh "$stl_file"
+              else
+                echo "  ✗ Failed to generate STL"
+              fi
+
+              # Generate PNG preview (using xvfb for headless rendering)
+              echo "  Generating PNG: $png_file"
+              xvfb-run -a openscad -o "$png_file" \
+                --imgsize=1024,768 \
+                --view=axes,scales \
+                --projection=ortho \
+                --colorscheme=Tomorrow \
+                --camera=0,0,0,60,0,25,500 \
+                "$scad_file"
+
+              if [ -f "$png_file" ]; then
+                echo "  ✓ PNG generated successfully"
+                ls -lh "$png_file"
+              else
+                echo "  ✗ Failed to generate PNG"
+              fi
+
+              echo ""
+            fi
+          done
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          git diff --quiet || echo "has_changes=true" >> $GITHUB_OUTPUT
+
+      - name: Commit generated files
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Add all generated STL and PNG files
+          git add "**/*.stl" "**/*.png"
+
+          # Create commit message listing changed files
+          changed_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
+          git commit -m "Auto-generate STL and PNG files from SCAD sources
+
+Generated files: $changed_files
+
+[skip ci]" || echo "No changes to commit"
+
+      - name: Push changes
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
