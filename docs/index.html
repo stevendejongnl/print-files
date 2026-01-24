@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Print Files - Portfolio</title>
+    <meta name="description" content="Portfolio of 3D printable designs and accessories">
+
+    <!-- Three.js for STL viewing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+    <!-- Prism.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --background: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0,0,0,0.07);
+            --shadow-hover: 0 8px 15px rgba(0,0,0,0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .project-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .project-card .thumbnail {
+            width: 100%;
+            height: 240px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-card .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .project-card .thumbnail .placeholder {
+            font-size: 4rem;
+            opacity: 0.3;
+            color: white;
+        }
+
+        .project-card .info {
+            padding: 1.5rem;
+        }
+
+        .project-card .info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .project-card .info .badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: var(--background);
+            color: var(--text-secondary);
+        }
+
+        .badge.stl {
+            background: #3498db;
+            color: white;
+        }
+
+        .badge.scad {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .badge.public {
+            background: #27ae60;
+            color: white;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            max-width: 1000px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--background);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--card-bg);
+            z-index: 10;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: var(--background);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .viewer-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--background);
+        }
+
+        .viewer-tab {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .viewer-tab:hover {
+            color: var(--primary-color);
+        }
+
+        .viewer-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .viewer-content {
+            display: none;
+        }
+
+        .viewer-content.active {
+            display: block;
+        }
+
+        #stl-viewer {
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: var(--border-radius);
+            position: relative;
+        }
+
+        .viewer-controls {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .viewer-controls button {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .viewer-controls button:hover {
+            background: #2980b9;
+        }
+
+        #image-viewer img {
+            width: 100%;
+            border-radius: var(--border-radius);
+        }
+
+        #code-viewer {
+            background: #2d2d2d;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        #code-viewer pre {
+            margin: 0;
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        .info-section {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--background);
+            border-radius: var(--border-radius);
+        }
+
+        .info-section h4 {
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .download-links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #c0392b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            border: 3px solid var(--background);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+            color: var(--text-secondary);
+            border-top: 1px solid #ddd;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                margin: 1rem;
+            }
+
+            #stl-viewer {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🖨️ 3D Print Files</h1>
+        <p>Parametric designs and printable 3D models</p>
+    </header>
+
+    <div class="container">
+        <div id="projects-container">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading projects...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Modal -->
+    <div id="project-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Project Title</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="viewer-tabs" id="viewer-tabs">
+                    <!-- Tabs will be dynamically generated -->
+                </div>
+
+                <div id="stl-viewer-content" class="viewer-content">
+                    <div id="stl-viewer"></div>
+                    <div class="viewer-controls">
+                        <button onclick="resetCamera()">Reset View</button>
+                        <button onclick="toggleWireframe()">Toggle Wireframe</button>
+                    </div>
+                </div>
+
+                <div id="image-viewer" class="viewer-content">
+                    <img id="preview-image" src="" alt="Preview">
+                </div>
+
+                <div id="code-viewer" class="viewer-content">
+                    <pre><code class="language-clike" id="scad-code"></code></pre>
+                </div>
+
+                <div class="info-section">
+                    <h4>Downloads</h4>
+                    <div class="download-links" id="download-links"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>3D Print Files Portfolio | OpenSCAD Parametric Designs</p>
+    </footer>
+
+    <script>
+        // Project data - will be loaded from projects.json
+        let projects = [];
+        let currentProject = null;
+
+        // Three.js viewer variables
+        let scene, camera, renderer, controls, currentMesh;
+        let isWireframe = false;
+
+        // Load projects data
+        async function loadProjects() {
+            try {
+                const response = await fetch('projects.json');
+                projects = await response.json();
+                renderProjects();
+            } catch (error) {
+                console.error('Error loading projects:', error);
+                document.getElementById('projects-container').innerHTML =
+                    '<div class="loading"><p>Error loading projects. Please try again later.</p></div>';
+            }
+        }
+
+        // Render project grid
+        function renderProjects() {
+            const container = document.getElementById('projects-container');
+
+            if (projects.length === 0) {
+                container.innerHTML = '<div class="loading"><p>No projects found.</p></div>';
+                return;
+            }
+
+            const grid = document.createElement('div');
+            grid.className = 'projects-grid';
+
+            projects.forEach(project => {
+                const card = document.createElement('div');
+                card.className = 'project-card';
+                card.onclick = () => openProject(project);
+
+                const thumbnail = project.preview
+                    ? `<img src="../${project.preview}" alt="${project.name}">`
+                    : '<div class="placeholder">📦</div>';
+
+                const badges = [];
+                if (project.stl) badges.push('<span class="badge stl">STL</span>');
+                if (project.scad) badges.push('<span class="badge scad">SCAD</span>');
+                if (project.isPublic) badges.push('<span class="badge public">Public</span>');
+
+                card.innerHTML = `
+                    <div class="thumbnail">
+                        ${thumbnail}
+                    </div>
+                    <div class="info">
+                        <h3>${project.name}</h3>
+                        <div class="badges">
+                            ${badges.join('')}
+                        </div>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(grid);
+        }
+
+        // Open project modal
+        function openProject(project) {
+            currentProject = project;
+            document.getElementById('modal-title').textContent = project.name;
+
+            // Generate tabs
+            const tabsContainer = document.getElementById('viewer-tabs');
+            tabsContainer.innerHTML = '';
+
+            if (project.stl) {
+                tabsContainer.innerHTML += '<button class="viewer-tab active" onclick="switchTab(\'stl\')">3D Model</button>';
+            }
+            if (project.preview) {
+                tabsContainer.innerHTML += `<button class="viewer-tab ${!project.stl ? 'active' : ''}" onclick="switchTab('image')">Preview</button>`;
+            }
+            if (project.scad) {
+                tabsContainer.innerHTML += `<button class="viewer-tab ${!project.stl && !project.preview ? 'active' : ''}" onclick="switchTab('code')">Source Code</button>`;
+            }
+
+            // Generate download links
+            const downloadLinks = document.getElementById('download-links');
+            downloadLinks.innerHTML = '';
+
+            if (project.stl) {
+                downloadLinks.innerHTML += `<a href="../${project.stl}" download class="download-btn">📥 Download STL</a>`;
+            }
+            if (project.scad) {
+                downloadLinks.innerHTML += `<a href="../${project.scad}" download class="download-btn">📄 Download SCAD</a>`;
+            }
+            if (project.preview) {
+                downloadLinks.innerHTML += `<a href="../${project.preview}" download class="download-btn">🖼️ Download Preview</a>`;
+            }
+
+            // Show modal and switch to first available tab
+            document.getElementById('project-modal').classList.add('active');
+
+            if (project.stl) {
+                switchTab('stl');
+            } else if (project.preview) {
+                switchTab('image');
+            } else if (project.scad) {
+                switchTab('code');
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('project-modal').classList.remove('active');
+            if (renderer) {
+                renderer.dispose();
+                document.getElementById('stl-viewer').innerHTML = '';
+            }
+        }
+
+        // Switch between tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.viewer-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event?.target?.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.viewer-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            switch(tabName) {
+                case 'stl':
+                    document.getElementById('stl-viewer-content').classList.add('active');
+                    loadSTL(currentProject.stl);
+                    break;
+                case 'image':
+                    document.getElementById('image-viewer').classList.add('active');
+                    document.getElementById('preview-image').src = `../${currentProject.preview}`;
+                    break;
+                case 'code':
+                    document.getElementById('code-viewer').classList.add('active');
+                    loadSCAD(currentProject.scad);
+                    break;
+            }
+        }
+
+        // Initialize Three.js STL viewer
+        function initSTLViewer() {
+            const container = document.getElementById('stl-viewer');
+            container.innerHTML = ''; // Clear previous viewer
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x667eea);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                45,
+                container.clientWidth / container.clientHeight,
+                0.1,
+                10000
+            );
+            camera.position.set(0, 0, 100);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight1.position.set(1, 1, 1);
+            scene.add(directionalLight1);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            directionalLight2.position.set(-1, -1, -1);
+            scene.add(directionalLight2);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (renderer) {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            });
+        }
+
+        // Load STL file
+        function loadSTL(stlPath) {
+            initSTLViewer();
+
+            const loader = new THREE.STLLoader();
+            loader.load(`../${stlPath}`, (geometry) => {
+                // Remove previous mesh
+                if (currentMesh) {
+                    scene.remove(currentMesh);
+                }
+
+                // Create material
+                const material = new THREE.MeshPhongMaterial({
+                    color: 0xff6b35,
+                    specular: 0x111111,
+                    shininess: 200
+                });
+
+                // Create mesh
+                currentMesh = new THREE.Mesh(geometry, material);
+
+                // Center and scale the model
+                geometry.computeBoundingBox();
+                const center = new THREE.Vector3();
+                geometry.boundingBox.getCenter(center);
+                currentMesh.position.sub(center);
+
+                const size = new THREE.Vector3();
+                geometry.boundingBox.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 80 / maxDim;
+                currentMesh.scale.set(scale, scale, scale);
+
+                scene.add(currentMesh);
+                resetCamera();
+            }, undefined, (error) => {
+                console.error('Error loading STL:', error);
+            });
+        }
+
+        // Load SCAD source code
+        async function loadSCAD(scadPath) {
+            try {
+                const response = await fetch(`../${scadPath}`);
+                const code = await response.text();
+                document.getElementById('scad-code').textContent = code;
+                Prism.highlightElement(document.getElementById('scad-code'));
+            } catch (error) {
+                console.error('Error loading SCAD:', error);
+                document.getElementById('scad-code').textContent = 'Error loading source code.';
+            }
+        }
+
+        // Reset camera position
+        function resetCamera() {
+            if (camera && controls) {
+                camera.position.set(0, 0, 100);
+                controls.reset();
+            }
+        }
+
+        // Toggle wireframe mode
+        function toggleWireframe() {
+            if (currentMesh) {
+                isWireframe = !isWireframe;
+                currentMesh.material.wireframe = isWireframe;
+            }
+        }
+
+        // Close modal on outside click
+        document.getElementById('project-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'project-modal') {
+                closeModal();
+            }
+        });
+
+        // Initialize on page load
+        loadProjects();
+    </script>
+</body>
+</html>
