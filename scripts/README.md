@@ -90,3 +90,71 @@ This repository also includes a GitHub Actions workflow that automatically:
 4. Choose the branch and click "Run workflow"
 
 The workflow will process all `.scad` files and commit the results.
+
+---
+
+## validate-workflow.sh
+
+Validates GitHub Actions workflow files before committing to prevent syntax errors and common issues.
+
+### Prerequisites
+
+- Python 3 with PyYAML (usually pre-installed)
+- Bash
+
+### Usage
+
+**Validate all workflow files:**
+```bash
+./scripts/validate-workflow.sh
+```
+
+**Validate specific workflow file:**
+```bash
+./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+```
+
+### What It Checks
+
+1. **YAML syntax** - Validates proper YAML structure using Python's yaml module
+2. **Required fields** - Ensures workflow has `name`, `on`, and `jobs` fields
+3. **Common issues:**
+   - Tabs instead of spaces
+   - Trailing whitespace
+   - Missing `permissions` block when using git push
+4. **Bash script syntax** - Validates bash scripts within `run:` blocks
+5. **GitHub Actions linting** - Uses actionlint if available (optional)
+
+### Example Output
+
+```bash
+$ ./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+
+GitHub Actions Workflow Validator
+
+Validating: .github/workflows/generate-stl-png.yml
+  YAML syntax... ✓
+  Required fields... ✓
+  Common issues... ✓
+  Bash scripts... ✓
+
+✓ All workflows validated successfully
+```
+
+### Best Practice
+
+**Always validate workflows before committing:**
+
+```bash
+# Make changes to workflow
+vim .github/workflows/generate-stl-png.yml
+
+# Validate before committing
+./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+
+# If validation passes, commit
+git add .github/workflows/generate-stl-png.yml
+git commit -m "Update workflow"
+```
+
+This prevents pushing broken workflows to the repository and failing CI/CD pipelines.
