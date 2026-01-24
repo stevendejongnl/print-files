@@ -38,8 +38,7 @@ print-files/
 │   └── README.md                  # Scripts documentation
 ├── eB fan Shroud/                 # Complete fan shroud design with LED fixture
 │   ├── eB fan shroud with 5mm straw hat fixture.stl  (953 KB)
-│   ├── eB fan shroud with 5mm straw hat fixture.png  (53 KB preview)
-│   └── .public                    # Marker indicating shareable design
+│   └── eB fan shroud with 5mm straw hat fixture.png  (53 KB preview)
 ├── led-grill/                     # LED grill cover design
 │   └── cover.stl                  (21 KB)
 └── spigen-pd2101-mount/           # Vertical charger mount (active development)
@@ -94,11 +93,6 @@ print-files/
 - Documenting final design appearance
 - Creating visual documentation
 - README illustrations
-
-### 4. Marker Files (`.public`)
-
-**Purpose:** Indicates publicly shareable designs
-**Usage:** Empty file serving as metadata flag
 
 ---
 
@@ -166,7 +160,6 @@ The web gallery is **automatically synchronized** via GitHub Actions:
 
 **Triggers:**
 - Any push to `.stl`, `.png`, `.scad` files
-- Changes to `.public` marker files
 - Manual workflow dispatch
 
 **Actions:**
@@ -193,15 +186,6 @@ git push
 
 # Wait 2-3 minutes for automation
 # Gallery automatically updates!
-```
-
-To mark a project as public (shareable):
-
-```bash
-touch my-new-design/.public
-git add my-new-design/.public
-git commit -m "Mark design as public"
-git push
 ```
 
 ### Customizing the Gallery
@@ -282,8 +266,7 @@ The site will be available at: `https://[username].github.io/[repository-name]/`
 5. **Add preview image** (optional but recommended):
    - Take screenshot from OpenSCAD
    - Or photograph/render final print
-6. **Add `.public` marker** if design is shareable
-7. **Commit with descriptive message**
+6. **Commit with descriptive message**
 
 ### Workflow 2: Modifying Existing Parametric Design
 
@@ -489,7 +472,6 @@ Update stl, screenshot and public     # For batch updates
 **Always commit together:**
 - `.scad` source file + exported `.stl` (if both exist)
 - Updated preview `.png` when design changes
-- `.public` marker with initial design
 
 **Commit frequency:**
 - After each significant design iteration
@@ -629,23 +611,7 @@ git add README.md [preview-images]
 git commit -m "Update documentation with [details]"
 ```
 
-### Task 5: Mark Design as Public and Shareable
-
-```bash
-# 1. Add .public marker to project directory
-touch myproject/.public
-
-# 2. Commit and push
-git add myproject/.public
-git commit -m "Mark [project] as public shareable design"
-git push
-
-# 3. Inform user: "The web gallery will automatically update to show
-# the 'Public' badge on this project. Wait 2-3 minutes, then check:
-# https://[username].github.io/[repo-name]/"
-```
-
-### Task 6: Verify Web Gallery
+### Task 5: Verify Web Gallery
 
 ```bash
 # After pushing changes, verify the web gallery is updated:
@@ -672,7 +638,6 @@ git push
 2. **Printable:** Optimized for FDM 3D printing
 3. **Parametric:** Easily adjustable for different use cases
 4. **Well-documented:** Clear comments explain design decisions
-5. **Shareable:** Include public marker for community designs
 
 ### Manufacturing Constraints
 
@@ -810,7 +775,6 @@ Edit `.github/workflows/generate-stl-png.yml` to change preview settings:
 
 **Triggers:**
 - Any push to `.stl`, `.png`, `.scad` files
-- Changes to `.public` marker files
 - Manually via Actions tab → "Run workflow"
 
 **What it does:**
@@ -827,7 +791,7 @@ Edit `.github/workflows/generate-stl-png.yml` to change preview settings:
 
 **Workflow details:**
 ```yaml
-Trigger: Push to *.stl, *.png, *.scad, .public files
+Trigger: Push to *.stl, *.png, *.scad files
 Job: sync-gallery
   1. Checkout repository
   2. Remove old docs/projects/ directory
@@ -842,7 +806,7 @@ Job: sync-gallery
 The workflow automatically creates `projects.json` entries:
 - Discovers project name from directory
 - Finds STL, PNG, and SCAD files
-- Detects `.public` marker for public badge
+- Sets all projects as public (isPublic: true)
 - Creates relative paths for web access
 
 **Manual trigger:**
@@ -867,7 +831,6 @@ The workflow automatically creates `projects.json` entries:
 - ✅ Review auto-generated files after workflow completes
 - ✅ Pull latest changes after GitHub Actions runs
 - ✅ Use local script for quick iteration during development
-- ✅ Add `.public` marker to shareable designs
 
 **Don't:**
 - ❌ Manually export and commit STL/PNG alongside `.scad` changes

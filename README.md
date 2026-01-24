@@ -36,8 +36,7 @@ print-files/
 ├── [project-name]/         # Individual project directories
 │   ├── *.scad             # OpenSCAD parametric source
 │   ├── *.stl              # 3D printable models
-│   ├── *.png              # Preview renders
-│   └── .public            # Optional: marks shareable designs
+│   └── *.png              # Preview renders
 └── .github/workflows/      # Automation
     ├── generate-stl-png.yml    # Auto-generate STL/PNG from SCAD
     └── sync-web-gallery.yml    # Auto-sync web gallery
@@ -105,7 +104,6 @@ If you have OpenSCAD installed locally:
 - **`.scad`** - OpenSCAD parametric source code (human-readable, version-control friendly)
 - **`.stl`** - 3D printable mesh models (binary format, ready for slicing)
 - **`.png`** - Preview images for documentation
-- **`.public`** - Empty marker file indicating publicly shareable designs
 
 ## 🔧 Development
 
