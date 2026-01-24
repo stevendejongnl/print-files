@@ -1,5 +1,5 @@
 // =====================================================
-// Spigen GaN 65w charger PD2101 – Vertical Charger Mount
+// Spigen GaN 65w PD2101 Charger – Vertical Charger Mount
 // =====================================================
 
 // ---------------- Charger ----------------
