@@ -1,5 +1,14 @@
 [
   {
+    "name": "car-screen-support",
+    "description": "Car screen support mount",
+    "stl": "projects/car-screen-support/car-screen-support.stl",
+    "preview": "projects/car-screen-support/car-screen-support.png",
+    "scad": "projects/car-screen-support/car-screen-support.scad",
+    "isPublic": true,
+    "category": "Mounting & Organization"
+  },
+  {
     "name": "eB Fan Shroud with LED Fixture",
     "description": "Complete fan shroud design with 5mm straw hat LED fixture",
     "stl": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.stl",
@@ -14,7 +23,7 @@
     "stl": "projects/led-grill/cover.stl",
     "preview": null,
     "scad": null,
-    "isPublic": false,
+    "isPublic": true,
     "category": "Lighting"
   },
   {
@@ -23,7 +32,7 @@
     "stl": "projects/spigen-pd2101-mount/spigen-pd2101-mount.stl",
     "preview": "projects/spigen-pd2101-mount/spigen-pd2101-mount.png",
     "scad": "projects/spigen-pd2101-mount/spigen-pd2101-mount.scad",
-    "isPublic": false,
+    "isPublic": true,
     "category": "Mounting & Organization"
   }
 ]
