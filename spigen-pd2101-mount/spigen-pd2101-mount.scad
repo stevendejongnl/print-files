@@ -1,11 +1,5 @@
 // =====================================================
-// Spigen PD2101 – Vertical Charger Mount (FIXED SCREWS)
-// Closed box
-// Top open
-// Bottom open except internal lip
-// Chamfers: vertical outer edges + top edge
-// Screw holes ONLY in back wall
-// Counterbore on INSIDE
+// Spigen PD2101 – Vertical Charger Mount
 // =====================================================
 
 // ---------------- Charger ----------------
