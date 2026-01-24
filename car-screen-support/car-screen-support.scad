@@ -1,79 +1,93 @@
 // ============================
-// Car Screen Support (Parametric)
+// Screen Support Block with U-Cradle
 // ============================
 
 // ---------- Parameters ----------
-support_height = 25;        // mm - vertical height (your hair clip replacement)
-dash_thickness = 18;        // mm - thickness of dashboard edge
-clip_depth     = 25;        // mm - how deep the clip grabs
-wall_thickness = 3;         // mm - structural thickness
+block_width_top    = 20;   // mm
+block_width_bottom = 30;   // mm
+block_depth        = 22;   // mm
+block_height       = 25;   // mm
 
-screen_width   = 90;        // mm - width of screen base
-screen_depth   = 12;        // mm - how much the screen rests on
-tilt_angle     = 10;        // degrees - backward tilt
+cradle_width       = 14;   // mm - inside width for screen edge
+cradle_depth       = 8;    // mm
+cradle_wall        = 2;    // mm
+cradle_height      = 4;    // mm
 
-base_width     = screen_width + 10;
-fillet_radius  = 2;
+rounding           = 0.8;
 
 // ---------- Quality ----------
 $fn = 64;
 
 // ============================
-// Main Assembly
+// Main
 // ============================
-union() {
-    dashboard_clip();
-    vertical_support();
-    screen_saddle();
+difference() {
+    union() {
+        tapered_block();
+        cradle_walls();
+    }
+    cradle_cutout();
 }
 
 // ============================
-// Dashboard Clip
+// Tapered Base
 // ============================
-module dashboard_clip() {
-    difference() {
-        // Outer shape
-        cube([
-            base_width,
-            clip_depth,
-            dash_thickness + wall_thickness
-        ]);
+module tapered_block() {
+    hull() {
+        translate([
+            -block_width_bottom / 2,
+            -block_depth / 2,
+            0
+        ])
+        cube([block_width_bottom, block_depth, 1]);
 
-        // Inner cutout
-        translate([wall_thickness, 0, wall_thickness])
-            cube([
-                base_width - 2 * wall_thickness,
-                clip_depth,
-                dash_thickness
-            ]);
+        translate([
+            -block_width_top / 2,
+            -block_depth / 2,
+            block_height
+        ])
+        cube([block_width_top, block_depth, 1]);
     }
 }
 
 // ============================
-// Vertical Support
+// Cradle Walls
 // ============================
-module vertical_support() {
-    translate([0, clip_depth - wall_thickness, dash_thickness])
-        cube([
-            base_width,
-            wall_thickness,
-            support_height
-        ]);
+module cradle_walls() {
+
+    // Left wall
+    translate([
+        -cradle_width / 2 - cradle_wall,
+        -cradle_depth / 2,
+        block_height
+    ])
+    cube([cradle_wall, cradle_depth, cradle_height]);
+
+    // Right wall
+    translate([
+        cradle_width / 2,
+        -cradle_depth / 2,
+        block_height
+    ])
+    cube([cradle_wall, cradle_depth, cradle_height]);
+
+    // Back wall
+    translate([
+        -cradle_width / 2 - cradle_wall,
+        cradle_depth / 2 - cradle_wall,
+        block_height
+    ])
+    cube([cradle_width + 2 * cradle_wall, cradle_wall, cradle_height]);
 }
 
 // ============================
-// Screen Saddle
+// Cradle Cutout
 // ============================
-module screen_saddle() {
+module cradle_cutout() {
     translate([
-        (base_width - screen_width) / 2,
-        clip_depth - wall_thickness,
-        dash_thickness + support_height
+        -cradle_width / 2,
+        -cradle_depth / 2,
+        block_height
     ])
-    rotate([-tilt_angle, 0, 0])
-        cube([
-            screen_width,
-            screen_depth,
-            wall_thickness * 2
-        ]);
+    cube([cradle_width, cradle_depth, cradle_height + 0.1]);
 }
