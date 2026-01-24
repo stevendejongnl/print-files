@@ -29,16 +29,18 @@ jobs:
           rm -rf docs/projects
           mkdir -p docs/projects
 
-          # Find all project directories (those containing .stl, .scad, or .png files)
-          find . -maxdepth 2 -type f \( -name "*.stl" -o -name "*.scad" -o -name "*.png" \) \
-            -not -path "./docs/*" \
-            -not -path "./.git/*" | while read -r file; do
+          # Find all project directories (directories containing .stl, .scad, or .png files)
+          # Use process substitution to avoid subshell issues
+          while IFS= read -r project_dir; do
+            project_name=$(basename "$project_dir")
 
-            dir=$(dirname "$file")
-            project_name=$(basename "$dir")
+            # Skip docs and .git directories
+            if [[ "$project_dir" == "./docs" ]] || [[ "$project_dir" == "./.git"* ]]; then
+              continue
+            fi
 
-            # Skip if already in root directory
-            if [ "$dir" = "." ]; then
+            # Skip root directory
+            if [ "$project_dir" = "." ]; then
               continue
             fi
 
@@ -46,30 +48,32 @@ jobs:
             mkdir -p "docs/projects/$project_name"
 
             # Copy all relevant files
-            cp -r "$dir"/*.stl "docs/projects/$project_name/" 2>/dev/null || true
-            cp -r "$dir"/*.png "docs/projects/$project_name/" 2>/dev/null || true
-            cp -r "$dir"/*.scad "docs/projects/$project_name/" 2>/dev/null || true
+            find "$project_dir" -maxdepth 1 -type f \( -name "*.stl" -o -name "*.png" -o -name "*.scad" \) -exec cp {} "docs/projects/$project_name/" \;
 
             echo "  ✓ Synced: $project_name"
-          done
+          done < <(find . -maxdepth 1 -type d -not -path "." -not -path "./docs" -not -path "./.git*")
 
       - name: Generate projects.json
         run: |
           echo "Generating projects.json..."
 
-          # Start JSON array
-          echo "[" > docs/projects.json
+          # Create temporary file for JSON entries
+          temp_json=$(mktemp)
 
+          # Find all project directories in docs/projects and generate JSON
           first=true
-
-          # Find all project directories in docs/projects
-          find docs/projects -mindepth 1 -maxdepth 1 -type d | sort | while read -r project_dir; do
+          while IFS= read -r project_dir; do
             project_name=$(basename "$project_dir")
 
             # Find files in this project
             stl_file=$(find "$project_dir" -maxdepth 1 -name "*.stl" | head -n 1)
             png_file=$(find "$project_dir" -maxdepth 1 -name "*.png" | head -n 1)
             scad_file=$(find "$project_dir" -maxdepth 1 -name "*.scad" | head -n 1)
+
+            # Skip if no files found
+            if [ -z "$stl_file" ] && [ -z "$scad_file" ]; then
+              continue
+            fi
 
             # Convert absolute paths to relative paths from docs/
             stl_rel=""
@@ -85,19 +89,14 @@ jobs:
               scad_rel=$(echo "$scad_file" | sed 's|docs/||')
             fi
 
-            # Skip if no files found
-            if [ -z "$stl_file" ] && [ -z "$scad_file" ]; then
-              continue
-            fi
-
             # Add comma if not first entry
             if [ "$first" = false ]; then
-              echo "," >> docs/projects.json
+              echo "," >> "$temp_json"
             fi
             first=false
 
             # Generate JSON entry
-            cat >> docs/projects.json <<EOF
+            cat >> "$temp_json" <<EOF
   {
     "name": "$project_name",
     "description": "3D printable design",
@@ -108,11 +107,16 @@ jobs:
     "category": "3D Prints"
   }
 EOF
-          done
+          done < <(find docs/projects -mindepth 1 -maxdepth 1 -type d | sort)
 
-          # Close JSON array
+          # Build final JSON file
+          echo "[" > docs/projects.json
+          cat "$temp_json" >> docs/projects.json
           echo "" >> docs/projects.json
           echo "]" >> docs/projects.json
+
+          # Clean up
+          rm "$temp_json"
 
           echo "✓ projects.json generated"
           echo ""
