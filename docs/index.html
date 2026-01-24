@@ -486,7 +486,7 @@
                 card.onclick = () => openProject(project);
 
                 const thumbnail = project.preview
-                    ? `<img src="../${project.preview}" alt="${project.name}">`
+                    ? `<img src="${project.preview}" alt="${project.name}">`
                     : '<div class="placeholder">📦</div>';
 
                 const badges = [];
@@ -537,13 +537,13 @@
             downloadLinks.innerHTML = '';
 
             if (project.stl) {
-                downloadLinks.innerHTML += `<a href="../${project.stl}" download class="download-btn">📥 Download STL</a>`;
+                downloadLinks.innerHTML += `<a href="${project.stl}" download class="download-btn">📥 Download STL</a>`;
             }
             if (project.scad) {
-                downloadLinks.innerHTML += `<a href="../${project.scad}" download class="download-btn">📄 Download SCAD</a>`;
+                downloadLinks.innerHTML += `<a href="${project.scad}" download class="download-btn">📄 Download SCAD</a>`;
             }
             if (project.preview) {
-                downloadLinks.innerHTML += `<a href="../${project.preview}" download class="download-btn">🖼️ Download Preview</a>`;
+                downloadLinks.innerHTML += `<a href="${project.preview}" download class="download-btn">🖼️ Download Preview</a>`;
             }
 
             // Show modal and switch to first available tab
@@ -587,7 +587,7 @@
                     break;
                 case 'image':
                     document.getElementById('image-viewer').classList.add('active');
-                    document.getElementById('preview-image').src = `../${currentProject.preview}`;
+                    document.getElementById('preview-image').src = `${currentProject.preview}`;
                     break;
                 case 'code':
                     document.getElementById('code-viewer').classList.add('active');
@@ -659,7 +659,7 @@
             initSTLViewer();
 
             const loader = new THREE.STLLoader();
-            loader.load(`../${stlPath}`, (geometry) => {
+            loader.load(`${stlPath}`, (geometry) => {
                 // Remove previous mesh
                 if (currentMesh) {
                     scene.remove(currentMesh);
@@ -697,7 +697,7 @@
         // Load SCAD source code
         async function loadSCAD(scadPath) {
             try {
-                const response = await fetch(`../${scadPath}`);
+                const response = await fetch(`${scadPath}`);
                 const code = await response.text();
                 document.getElementById('scad-code').textContent = code;
                 Prism.highlightElement(document.getElementById('scad-code'));

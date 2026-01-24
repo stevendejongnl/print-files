@@ -2,8 +2,8 @@
   {
     "name": "eB Fan Shroud with LED Fixture",
     "description": "Complete fan shroud design with 5mm straw hat LED fixture",
-    "stl": "eB fan Shroud/eB fan shroud with 5mm straw hat fixture.stl",
-    "preview": "eB fan Shroud/eB fan shroud with 5mm straw hat fixture.png",
+    "stl": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.stl",
+    "preview": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.png",
     "scad": null,
     "isPublic": true,
     "category": "Cooling & Lighting"
@@ -11,7 +11,7 @@
   {
     "name": "LED Grill Cover",
     "description": "LED grill cover design",
-    "stl": "led-grill/cover.stl",
+    "stl": "projects/led-grill/cover.stl",
     "preview": null,
     "scad": null,
     "isPublic": false,
@@ -20,9 +20,9 @@
   {
     "name": "Spigen PD2101 Vertical Charger Mount",
     "description": "Parametric mount for Spigen PD2101 vertical charger",
-    "stl": "spigen-pd2101-mount/spigen-pd2101-mount.stl",
-    "preview": "spigen-pd2101-mount/spigen-pd2101-mount.png",
-    "scad": "spigen-pd2101-mount/spigen-pd2101-mount.scad",
+    "stl": "projects/spigen-pd2101-mount/spigen-pd2101-mount.stl",
+    "preview": "projects/spigen-pd2101-mount/spigen-pd2101-mount.png",
+    "scad": "projects/spigen-pd2101-mount/spigen-pd2101-mount.scad",
     "isPublic": false,
     "category": "Mounting & Organization"
   }
