@@ -29,74 +29,81 @@ jobs:
           rm -rf docs/projects
           mkdir -p docs/projects
 
-          # Find all project directories (directories containing .stl, .scad, or .png files)
-          # Use process substitution to avoid subshell issues
-          while IFS= read -r project_dir; do
-            project_name=$(basename "$project_dir")
+          # Find all project directories (maxdepth 1, skip docs and .git)
+          for project_dir in */; do
+            # Remove trailing slash
+            project_dir="${project_dir%/}"
 
             # Skip docs and .git directories
-            if [[ "$project_dir" == "./docs" ]] || [[ "$project_dir" == "./.git"* ]]; then
+            if [ "$project_dir" = "docs" ] || [ "$project_dir" = ".git" ]; then
               continue
             fi
 
-            # Skip root directory
-            if [ "$project_dir" = "." ]; then
-              continue
+            # Check if directory contains any 3D files
+            if ls "$project_dir"/*.{stl,png,scad} 1> /dev/null 2>&1; then
+              # Create project directory in docs
+              mkdir -p "docs/projects/$project_dir"
+
+              # Copy all relevant files
+              cp "$project_dir"/*.stl "docs/projects/$project_dir/" 2>/dev/null || true
+              cp "$project_dir"/*.png "docs/projects/$project_dir/" 2>/dev/null || true
+              cp "$project_dir"/*.scad "docs/projects/$project_dir/" 2>/dev/null || true
+
+              echo "  ✓ Synced: $project_dir"
             fi
-
-            # Create project directory in docs
-            mkdir -p "docs/projects/$project_name"
-
-            # Copy all relevant files
-            find "$project_dir" -maxdepth 1 -type f \( -name "*.stl" -o -name "*.png" -o -name "*.scad" \) -exec cp {} "docs/projects/$project_name/" \;
-
-            echo "  ✓ Synced: $project_name"
-          done < <(find . -maxdepth 1 -type d -not -path "." -not -path "./docs" -not -path "./.git*")
+          done
 
       - name: Generate projects.json
         run: |
           echo "Generating projects.json..."
 
-          # Create temporary file for JSON entries
-          temp_json=$(mktemp)
+          # Start building JSON
+          echo "[" > docs/projects.json
 
-          # Find all project directories in docs/projects and generate JSON
           first=true
-          while IFS= read -r project_dir; do
+
+          # Loop through project directories
+          for project_dir in docs/projects/*/; do
+            # Skip if no directories found
+            [ -d "$project_dir" ] || continue
+
+            # Remove trailing slash and get project name
+            project_dir="${project_dir%/}"
             project_name=$(basename "$project_dir")
 
             # Find files in this project
-            stl_file=$(find "$project_dir" -maxdepth 1 -name "*.stl" | head -n 1)
-            png_file=$(find "$project_dir" -maxdepth 1 -name "*.png" | head -n 1)
-            scad_file=$(find "$project_dir" -maxdepth 1 -name "*.scad" | head -n 1)
+            stl_file=$(find "$project_dir" -maxdepth 1 -name "*.stl" -print -quit)
+            png_file=$(find "$project_dir" -maxdepth 1 -name "*.png" -print -quit)
+            scad_file=$(find "$project_dir" -maxdepth 1 -name "*.scad" -print -quit)
 
-            # Skip if no files found
+            # Skip if no STL or SCAD found
             if [ -z "$stl_file" ] && [ -z "$scad_file" ]; then
               continue
             fi
 
-            # Convert absolute paths to relative paths from docs/
+            # Convert to relative paths
             stl_rel=""
             png_rel=""
             scad_rel=""
+
             if [ -n "$stl_file" ]; then
-              stl_rel=$(echo "$stl_file" | sed 's|docs/||')
+              stl_rel="${stl_file#docs/}"
             fi
             if [ -n "$png_file" ]; then
-              png_rel=$(echo "$png_file" | sed 's|docs/||')
+              png_rel="${png_file#docs/}"
             fi
             if [ -n "$scad_file" ]; then
-              scad_rel=$(echo "$scad_file" | sed 's|docs/||')
+              scad_rel="${scad_file#docs/}"
             fi
 
             # Add comma if not first entry
             if [ "$first" = false ]; then
-              echo "," >> "$temp_json"
+              echo "," >> docs/projects.json
             fi
             first=false
 
             # Generate JSON entry
-            cat >> "$temp_json" <<EOF
+            cat >> docs/projects.json <<EOF
   {
     "name": "$project_name",
     "description": "3D printable design",
@@ -107,16 +114,11 @@ jobs:
     "category": "3D Prints"
   }
 EOF
-          done < <(find docs/projects -mindepth 1 -maxdepth 1 -type d | sort)
+          done
 
-          # Build final JSON file
-          echo "[" > docs/projects.json
-          cat "$temp_json" >> docs/projects.json
+          # Close JSON array
           echo "" >> docs/projects.json
           echo "]" >> docs/projects.json
-
-          # Clean up
-          rm "$temp_json"
 
           echo "✓ projects.json generated"
           echo ""
