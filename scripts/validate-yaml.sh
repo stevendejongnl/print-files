@@ -58,7 +58,9 @@ try:
         if 'name' not in data:
             print('ERROR: Missing required field: name')
             sys.exit(1)
-        if 'on' not in data:
+        # Note: 'on' is a boolean in YAML, might be parsed as True/False
+        # GitHub Actions workflows need either 'on' or True key
+        if 'on' not in data and True not in data:
             print('ERROR: Missing required field: on')
             sys.exit(1)
         if 'jobs' not in data:

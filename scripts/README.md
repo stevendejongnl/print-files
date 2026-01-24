@@ -186,6 +186,33 @@ git commit --no-verify
 
 ---
 
+---
+
+## Automated YAML Validation
+
+In addition to local validation, this repository includes a GitHub Actions workflow that automatically validates YAML files on every pull request.
+
+**Workflow:** `.github/workflows/validate-yaml.yml`
+
+**Triggers:**
+- Pull requests that modify `.github/workflows/*.yml` files
+- Pushes to main that modify workflow files
+- Manual dispatch
+
+**What it does:**
+1. Installs Python with PyYAML
+2. Installs actionlint for comprehensive GitHub Actions validation
+3. Runs `validate-yaml.sh` to check all workflow files
+4. Comments on PR if validation fails
+
+**Benefits:**
+- ✅ Automatic validation on every PR
+- ✅ Quick feedback before merging
+- ✅ Prevents broken workflows from reaching main
+- ✅ No manual validation needed for contributors
+
+---
+
 ## Directory Structure
 
 ```
@@ -196,4 +223,13 @@ scripts/
 ├── hooks/
 │   └── pre-commit          # Pre-commit hook template
 └── README.md               # This file
+```
+
+## Workflows
+
+```
+.github/workflows/
+├── generate-stl-png.yml     # Auto-generate STL/PNG from SCAD
+├── sync-web-gallery.yml     # Auto-sync web gallery
+└── validate-yaml.yml        # Validate workflow YAML files
 ```

@@ -1,0 +1,52 @@
+name: Validate YAML Workflows
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/*.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/*.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Install actionlint
+        run: |
+          # Install actionlint for comprehensive GitHub Actions validation
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          sudo mv actionlint /usr/local/bin/
+
+      - name: Make validation script executable
+        run: chmod +x scripts/validate-yaml.sh
+
+      - name: Validate YAML workflows
+        run: ./scripts/validate-yaml.sh
+
+      - name: Comment on PR (if validation failed)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ YAML validation failed! Please check the workflow files for syntax errors.\n\nSee the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.'
+            })
