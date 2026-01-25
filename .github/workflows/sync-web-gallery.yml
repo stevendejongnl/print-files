@@ -29,6 +29,9 @@ jobs:
           rm -rf docs/projects
           mkdir -p docs/projects
 
+          # Enable nullglob to handle empty directory case
+          shopt -s nullglob
+
           # Find all project directories (maxdepth 1, skip docs and .git)
           for project_dir in */; do
             # Remove trailing slash
@@ -69,6 +72,9 @@ jobs:
           echo "[" > docs/projects.json
 
           first=true
+
+          # Enable nullglob to handle empty directory case
+          shopt -s nullglob
 
           # Loop through project directories
           for project_dir in docs/projects/*/; do
