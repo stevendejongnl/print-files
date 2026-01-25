@@ -114,9 +114,28 @@ jobs:
             echo "  {" >> docs/projects.json
             echo "    \"name\": \"$project_name\"," >> docs/projects.json
             echo "    \"description\": \"3D printable design\"," >> docs/projects.json
-            echo "    \"stl\": ${stl_rel:+\"$stl_rel\"}${stl_rel:-"null"}," >> docs/projects.json
-            echo "    \"preview\": ${png_rel:+\"$png_rel\"}${png_rel:-"null"}," >> docs/projects.json
-            echo "    \"scad\": ${scad_rel:+\"$scad_rel\"}${scad_rel:-"null"}," >> docs/projects.json
+
+            # Handle stl field
+            if [ -n "$stl_rel" ]; then
+              echo "    \"stl\": \"$stl_rel\"," >> docs/projects.json
+            else
+              echo "    \"stl\": null," >> docs/projects.json
+            fi
+
+            # Handle preview field
+            if [ -n "$png_rel" ]; then
+              echo "    \"preview\": \"$png_rel\"," >> docs/projects.json
+            else
+              echo "    \"preview\": null," >> docs/projects.json
+            fi
+
+            # Handle scad field
+            if [ -n "$scad_rel" ]; then
+              echo "    \"scad\": \"$scad_rel\"," >> docs/projects.json
+            else
+              echo "    \"scad\": null," >> docs/projects.json
+            fi
+
             echo "    \"isPublic\": true," >> docs/projects.json
             echo "    \"category\": \"3D Prints\"" >> docs/projects.json
             echo "  }" >> docs/projects.json
