@@ -103,17 +103,15 @@ jobs:
             first=false
 
             # Generate JSON entry
-            cat >> docs/projects.json <<EOF
-  {
-    "name": "$project_name",
-    "description": "3D printable design",
-    "stl": ${stl_rel:+\"$stl_rel\"}${stl_rel:-null},
-    "preview": ${png_rel:+\"$png_rel\"}${png_rel:-null},
-    "scad": ${scad_rel:+\"$scad_rel\"}${scad_rel:-null},
-    "isPublic": true,
-    "category": "3D Prints"
-  }
-EOF
+            echo "  {" >> docs/projects.json
+            echo "    \"name\": \"$project_name\"," >> docs/projects.json
+            echo "    \"description\": \"3D printable design\"," >> docs/projects.json
+            echo "    \"stl\": ${stl_rel:+\"$stl_rel\"}${stl_rel:-null}," >> docs/projects.json
+            echo "    \"preview\": ${png_rel:+\"$png_rel\"}${png_rel:-null}," >> docs/projects.json
+            echo "    \"scad\": ${scad_rel:+\"$scad_rel\"}${scad_rel:-null}," >> docs/projects.json
+            echo "    \"isPublic\": true," >> docs/projects.json
+            echo "    \"category\": \"3D Prints\"" >> docs/projects.json
+            echo "  }" >> docs/projects.json
           done
 
           # Close JSON array
