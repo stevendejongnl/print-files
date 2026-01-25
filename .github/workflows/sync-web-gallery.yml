@@ -40,7 +40,15 @@ jobs:
             fi
 
             # Check if directory contains any 3D files
-            if ls "$project_dir"/*.{stl,png,scad} 1> /dev/null 2>&1; then
+            has_files=false
+            for ext in stl png scad; do
+              if compgen -G "$project_dir/*.$ext" > /dev/null; then
+                has_files=true
+                break
+              fi
+            done
+
+            if [ "$has_files" = true ]; then
               # Create project directory in docs
               mkdir -p "docs/projects/$project_dir"
 
