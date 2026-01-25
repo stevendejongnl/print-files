@@ -93,68 +93,143 @@ The workflow will process all `.scad` files and commit the results.
 
 ---
 
-## validate-workflow.sh
+## validate-yaml.sh
 
-Validates GitHub Actions workflow files before committing to prevent syntax errors and common issues.
+Validates YAML files in `.github/workflows/` to catch syntax errors before committing.
 
 ### Prerequisites
 
-- Python 3 with PyYAML (usually pre-installed)
-- Bash
+One of the following:
+- **yamllint:** `pip install yamllint` (recommended)
+- **Python 3 with PyYAML:** `pip install pyyaml`
+
+If neither is available, the script will warn but not fail.
 
 ### Usage
 
 **Validate all workflow files:**
 ```bash
-./scripts/validate-workflow.sh
-```
-
-**Validate specific workflow file:**
-```bash
-./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+./scripts/validate-yaml.sh
 ```
 
 ### What It Checks
 
-1. **YAML syntax** - Validates proper YAML structure using Python's yaml module
-2. **Required fields** - Ensures workflow has `name`, `on`, and `jobs` fields
-3. **Common issues:**
-   - Tabs instead of spaces
-   - Trailing whitespace
-   - Missing `permissions` block when using git push
-4. **Bash script syntax** - Validates bash scripts within `run:` blocks
-5. **GitHub Actions linting** - Uses actionlint if available (optional)
+- YAML syntax validation
+- Proper structure and formatting
+- Catches common errors like:
+  - Invalid indentation
+  - Missing colons
+  - Unclosed quotes
+  - Invalid characters
 
 ### Example Output
 
 ```bash
-$ ./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+$ ./scripts/validate-yaml.sh
 
-GitHub Actions Workflow Validator
+🔍 Validating YAML files...
+Using Python for validation
+  ✓ .github/workflows/generate-stl-png.yml
+  ✓ .github/workflows/sync-web-gallery.yml
 
-Validating: .github/workflows/generate-stl-png.yml
-  YAML syntax... ✓
-  Required fields... ✓
-  Common issues... ✓
-  Bash scripts... ✓
-
-✓ All workflows validated successfully
+✅ All YAML files are valid
 ```
 
-### Best Practice
+---
 
-**Always validate workflows before committing:**
+## install-hooks.sh
+
+Installs Git pre-commit hooks to automatically validate YAML files before each commit.
+
+### Usage
+
+**One-time installation:**
+```bash
+./scripts/install-hooks.sh
+```
+
+This will:
+1. Copy the pre-commit hook to `.git/hooks/`
+2. Make it executable
+3. Configure automatic YAML validation
+
+### What the Hook Does
+
+When you commit changes to workflow files, the hook will:
+1. Detect YAML files in `.github/workflows/`
+2. Automatically run `validate-yaml.sh`
+3. Block the commit if validation fails
+4. Show clear error messages
+
+### Example
 
 ```bash
-# Make changes to workflow
-vim .github/workflows/generate-stl-png.yml
+$ git add .github/workflows/sync-web-gallery.yml
+$ git commit -m "Update workflow"
 
-# Validate before committing
-./scripts/validate-workflow.sh .github/workflows/generate-stl-png.yml
+📋 YAML files detected in commit, running validation...
+🔍 Validating YAML files...
+Using Python for validation
+  ✓ .github/workflows/sync-web-gallery.yml
 
-# If validation passes, commit
-git add .github/workflows/generate-stl-png.yml
-git commit -m "Update workflow"
+✅ YAML validation passed
+[main abc1234] Update workflow
+ 1 file changed, 5 insertions(+)
 ```
 
-This prevents pushing broken workflows to the repository and failing CI/CD pipelines.
+### Bypass Hook (Not Recommended)
+
+If you need to bypass validation (not recommended):
+```bash
+git commit --no-verify
+```
+
+---
+
+---
+
+## Automated YAML Validation
+
+In addition to local validation, this repository includes a GitHub Actions workflow that automatically validates YAML files on every pull request.
+
+**Workflow:** `.github/workflows/validate-yaml.yml`
+
+**Triggers:**
+- Pull requests that modify `.github/workflows/*.yml` files
+- Pushes to main that modify workflow files
+- Manual dispatch
+
+**What it does:**
+1. Installs Python with PyYAML
+2. Installs actionlint for comprehensive GitHub Actions validation
+3. Runs `validate-yaml.sh` to check all workflow files
+4. Comments on PR if validation fails
+
+**Benefits:**
+- ✅ Automatic validation on every PR
+- ✅ Quick feedback before merging
+- ✅ Prevents broken workflows from reaching main
+- ✅ No manual validation needed for contributors
+
+---
+
+## Directory Structure
+
+```
+scripts/
+├── generate-exports.sh      # Generate STL/PNG from SCAD
+├── validate-yaml.sh         # Validate workflow YAML files
+├── install-hooks.sh         # Install Git pre-commit hooks
+├── hooks/
+│   └── pre-commit          # Pre-commit hook template
+└── README.md               # This file
+```
+
+## Workflows
+
+```
+.github/workflows/
+├── generate-stl-png.yml     # Auto-generate STL/PNG from SCAD
+├── sync-web-gallery.yml     # Auto-sync web gallery
+└── validate-yaml.yml        # Validate workflow YAML files
+```

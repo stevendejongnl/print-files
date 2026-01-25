@@ -29,6 +29,9 @@ jobs:
           rm -rf docs/projects
           mkdir -p docs/projects
 
+          # Enable nullglob to handle empty directory case
+          shopt -s nullglob
+
           # Find all project directories (maxdepth 1, skip docs and .git)
           for project_dir in */; do
             # Remove trailing slash
@@ -40,7 +43,15 @@ jobs:
             fi
 
             # Check if directory contains any 3D files
-            if ls "$project_dir"/*.{stl,png,scad} 1> /dev/null 2>&1; then
+            has_files=false
+            for ext in stl png scad; do
+              if compgen -G "$project_dir/*.$ext" > /dev/null; then
+                has_files=true
+                break
+              fi
+            done
+
+            if [ "$has_files" = true ]; then
               # Create project directory in docs
               mkdir -p "docs/projects/$project_dir"
 
@@ -55,75 +66,50 @@ jobs:
 
       - name: Generate projects.json
         run: |
-          echo "Generating projects.json..."
+          python3 << 'EOF'
+          import json
+          import os
+          from pathlib import Path
 
-          # Start building JSON
-          echo "[" > docs/projects.json
+          projects = []
+          projects_dir = Path("docs/projects")
 
-          first=true
+          if projects_dir.exists():
+              for project_path in sorted(projects_dir.iterdir()):
+                  if not project_path.is_dir():
+                      continue
 
-          # Loop through project directories
-          for project_dir in docs/projects/*/; do
-            # Skip if no directories found
-            [ -d "$project_dir" ] || continue
+                  project_name = project_path.name
 
-            # Remove trailing slash and get project name
-            project_dir="${project_dir%/}"
-            project_name=$(basename "$project_dir")
+                  # Find files
+                  stl_files = list(project_path.glob("*.stl"))
+                  png_files = list(project_path.glob("*.png"))
+                  scad_files = list(project_path.glob("*.scad"))
 
-            # Find files in this project
-            stl_file=$(find "$project_dir" -maxdepth 1 -name "*.stl" -print -quit)
-            png_file=$(find "$project_dir" -maxdepth 1 -name "*.png" -print -quit)
-            scad_file=$(find "$project_dir" -maxdepth 1 -name "*.scad" -print -quit)
+                  # Skip if no STL or SCAD
+                  if not stl_files and not scad_files:
+                      continue
 
-            # Skip if no STL or SCAD found
-            if [ -z "$stl_file" ] && [ -z "$scad_file" ]; then
-              continue
-            fi
+                  # Build project entry
+                  project = {
+                      "name": project_name,
+                      "description": "3D printable design",
+                      "stl": f"projects/{project_name}/{stl_files[0].name}" if stl_files else None,
+                      "preview": f"projects/{project_name}/{png_files[0].name}" if png_files else None,
+                      "scad": f"projects/{project_name}/{scad_files[0].name}" if scad_files else None,
+                      "isPublic": True,
+                      "category": "3D Prints"
+                  }
+                  projects.append(project)
 
-            # Convert to relative paths
-            stl_rel=""
-            png_rel=""
-            scad_rel=""
+          # Write JSON file
+          with open("docs/projects.json", "w") as f:
+              json.dump(projects, f, indent=2)
 
-            if [ -n "$stl_file" ]; then
-              stl_rel="${stl_file#docs/}"
-            fi
-            if [ -n "$png_file" ]; then
-              png_rel="${png_file#docs/}"
-            fi
-            if [ -n "$scad_file" ]; then
-              scad_rel="${scad_file#docs/}"
-            fi
-
-            # Add comma if not first entry
-            if [ "$first" = false ]; then
-              echo "," >> docs/projects.json
-            fi
-            first=false
-
-            # Generate JSON entry
-            cat >> docs/projects.json <<EOF
-  {
-    "name": "$project_name",
-    "description": "3D printable design",
-    "stl": ${stl_rel:+\"$stl_rel\"}${stl_rel:-null},
-    "preview": ${png_rel:+\"$png_rel\"}${png_rel:-null},
-    "scad": ${scad_rel:+\"$scad_rel\"}${scad_rel:-null},
-    "isPublic": true,
-    "category": "3D Prints"
-  }
-EOF
-          done
-
-          # Close JSON array
-          echo "" >> docs/projects.json
-          echo "]" >> docs/projects.json
-
-          echo "✓ projects.json generated"
-          echo ""
-          echo "Generated content:"
-          cat docs/projects.json
+          print("✓ projects.json generated")
+          print("\nGenerated content:")
+          print(json.dumps(projects, indent=2))
+          EOF
 
       - name: Check for changes
         id: check-changes
@@ -131,10 +117,10 @@ EOF
           git add docs/
 
           if git diff --cached --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes to gallery"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Gallery changes detected:"
             git diff --cached --name-status
           fi

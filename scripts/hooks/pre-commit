@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Pre-commit hook for print-files repository
+# Validates YAML workflow files before commit
+
+# Check if any .yml files in .github/workflows/ are staged
+if git diff --cached --name-only | grep -q '.github/workflows/.*\.yml$'; then
+    echo "📋 YAML files detected in commit, running validation..."
+
+    # Run YAML validation script
+    ./scripts/validate-yaml.sh
+
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "❌ Commit rejected: YAML validation failed"
+        echo "   Fix the errors above and try again"
+        exit 1
+    fi
+
+    echo "✅ YAML validation passed"
+fi
+
+exit 0
