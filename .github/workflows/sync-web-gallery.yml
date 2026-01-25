@@ -114,9 +114,9 @@ jobs:
             echo "  {" >> docs/projects.json
             echo "    \"name\": \"$project_name\"," >> docs/projects.json
             echo "    \"description\": \"3D printable design\"," >> docs/projects.json
-            echo "    \"stl\": ${stl_rel:+\"$stl_rel\"}${stl_rel:-null}," >> docs/projects.json
-            echo "    \"preview\": ${png_rel:+\"$png_rel\"}${png_rel:-null}," >> docs/projects.json
-            echo "    \"scad\": ${scad_rel:+\"$scad_rel\"}${scad_rel:-null}," >> docs/projects.json
+            echo "    \"stl\": ${stl_rel:+\"$stl_rel\"}${stl_rel:-"null"}," >> docs/projects.json
+            echo "    \"preview\": ${png_rel:+\"$png_rel\"}${png_rel:-"null"}," >> docs/projects.json
+            echo "    \"scad\": ${scad_rel:+\"$scad_rel\"}${scad_rel:-"null"}," >> docs/projects.json
             echo "    \"isPublic\": true," >> docs/projects.json
             echo "    \"category\": \"3D Prints\"" >> docs/projects.json
             echo "  }" >> docs/projects.json
@@ -137,10 +137,10 @@ jobs:
           git add docs/
 
           if git diff --cached --quiet; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes to gallery"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "Gallery changes detected:"
             git diff --cached --name-status
           fi
