@@ -5,16 +5,18 @@ on:
     paths:
       - '**/*.stl'
       - 'profiles/*.cfg'
+      - 'profiles/*.curaprofile'
   workflow_dispatch:
     inputs:
       profile:
         description: 'Filament profile to use'
         required: false
-        default: 'pla'
+        default: 'pla-plus'
         type: choice
         options:
-          - pla
+          - pla-plus
           - petg
+          - petg-cf
 
 permissions:
   contents: write
@@ -79,7 +81,7 @@ jobs:
           PROFILE_INPUT: ${{ github.event.inputs.profile }}
         run: |
           # Use workflow_dispatch input if available, otherwise default to pla
-          PROFILE="${PROFILE_INPUT:-pla}"
+          PROFILE="${PROFILE_INPUT:-pla-plus}"
           echo "name=$PROFILE" >> "$GITHUB_OUTPUT"
           echo "Using profile: $PROFILE"
 

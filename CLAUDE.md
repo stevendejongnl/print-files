@@ -31,8 +31,9 @@ print-files/
 │       └── spigen-pd2101-mount/
 ├── profiles/                      # CuraEngine slicing profiles
 │   ├── README.md                  # Profile documentation
-│   ├── pla.cfg                    # PLA filament profile
-│   └── petg.cfg                   # PETG filament profile
+│   ├── pla-plus.cfg               # eSUN PLA+ profile (Aquila tuned)
+│   ├── petg.cfg                   # eSUN PETG profile (Aquila tuned)
+│   └── petg-cf.cfg                # eSUN PETG-CF profile (Aquila tuned)
 ├── .github/
 │   └── workflows/
 │       ├── generate-stl-png.yml   # Automated STL/PNG generation
@@ -783,10 +784,13 @@ This repository supports automated G-code generation from STL files using CuraEn
 
 **Location:** `profiles/`
 
-Profiles are simple key-value `.cfg` files containing CuraEngine settings. Included profiles:
+Profiles are simple key-value `.cfg` files containing CuraEngine settings, extracted from Cura exports. All profiles are tuned for a Voxelab Aquila. Included profiles:
 
-- `pla.cfg` - Standard PLA (200C nozzle, 60C bed, 50mm/s)
-- `petg.cfg` - Standard PETG (235C nozzle, 75C bed, 40mm/s)
+- `pla-plus.cfg` - eSUN PLA+ Quality (210C nozzle, 60C bed, 75mm/s)
+- `petg.cfg` - eSUN PETG Fast (245C nozzle, 80C bed, 85mm/s)
+- `petg-cf.cfg` - eSUN PETG-CF Precision (255C nozzle, 85C bed, 65mm/s)
+
+Original Cura exports (`.curaprofile` ZIP files) are also stored in `profiles/` for reference. The script supports both `.cfg` and `.curaprofile` formats.
 
 To add a new profile, create a `.cfg` file in `profiles/` with CuraEngine settings:
 

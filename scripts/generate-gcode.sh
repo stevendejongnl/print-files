@@ -6,11 +6,14 @@
 # This script slices STL files into G-code using CuraEngine
 # with filament profiles stored in the profiles/ directory.
 #
+# Supports both .cfg (key=value) and .curaprofile (Cura export)
+# profile formats.
+#
 # Requirements: CuraEngine must be installed
 # Usage: ./scripts/generate-gcode.sh [options] [stl_file ...]
 #
 # Options:
-#   --profile <name>      Filament profile (default: pla)
+#   --profile <name>      Filament profile (default: pla-plus)
 #   --definition <path>   Printer definition JSON file
 #   --all                 Process all STL files in repository
 #   --help                Show this help message
@@ -31,7 +34,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Defaults
-PROFILE="pla"
+PROFILE="pla-plus"
 PRINTER_DEF=""
 PROCESS_ALL=false
 STL_FILES=()
@@ -44,35 +47,43 @@ usage() {
     echo "Generate G-code from STL files using CuraEngine."
     echo ""
     echo "Options:"
-    echo "  --profile <name>      Filament profile from profiles/ dir (default: pla)"
+    echo "  --profile <name>      Filament profile from profiles/ dir (default: pla-plus)"
     echo "  --definition <path>   Path to printer definition JSON"
     echo "  --all                 Process all STL files in repository"
     echo "  --help                Show this help message"
     echo ""
-    echo "Available profiles:"
+    echo "Available profiles (.cfg):"
     if [ -d "$PROFILES_DIR" ]; then
         for cfg in "$PROFILES_DIR"/*.cfg; do
             if [ -f "$cfg" ]; then
                 local name
                 name=$(basename "$cfg" .cfg)
                 local desc
-                desc=$(grep -m1 "^#.*Profile" "$cfg" 2>/dev/null | sed 's/^#\s*//' || echo "")
+                desc=$(grep -m1 "^#.*Tuned\|^#.*Profile\|^#.*eSUN" "$cfg" 2>/dev/null | sed 's/^#\s*//' || echo "")
                 echo "  $name  ($desc)"
             fi
         done
-    else
-        echo "  (no profiles directory found)"
+    fi
+    echo ""
+    echo "Available profiles (.curaprofile):"
+    if [ -d "$PROFILES_DIR" ]; then
+        for cp in "$PROFILES_DIR"/*.curaprofile; do
+            if [ -f "$cp" ]; then
+                local cpname
+                cpname=$(basename "$cp" .curaprofile)
+                echo "  $cpname"
+            fi
+        done
     fi
     echo ""
     echo "Examples:"
     echo "  $(basename "$0") model.stl"
     echo "  $(basename "$0") --profile petg project/model.stl"
+    echo "  $(basename "$0") --profile petg-cf --all"
     echo "  $(basename "$0") --all"
-    echo "  $(basename "$0") --all --profile petg"
 }
 
 find_curaengine() {
-    # Check common CuraEngine binary names and locations
     local candidates=(
         "CuraEngine"
         "curaengine"
@@ -99,13 +110,6 @@ find_curaengine() {
 }
 
 find_printer_definition() {
-    # Look for printer definition in order of priority:
-    # 1. User-specified via --definition flag
-    # 2. profiles/printer.def.json in repo
-    # 3. CURA_DEFINITION environment variable
-    # 4. System CuraEngine definitions
-    # 5. Download generic fdmprinter definition
-
     if [ -n "$PRINTER_DEF" ] && [ -f "$PRINTER_DEF" ]; then
         echo "$PRINTER_DEF"
         return 0
@@ -121,7 +125,6 @@ find_printer_definition() {
         return 0
     fi
 
-    # Check system locations
     local system_paths=(
         "/usr/share/curaengine/fdmprinter.def.json"
         "/usr/share/cura-engine/fdmprinter.def.json"
@@ -129,14 +132,13 @@ find_printer_definition() {
         "/snap/cura-slicer/current/usr/share/cura/resources/definitions/fdmprinter.def.json"
     )
 
-    for path in "${system_paths[@]}"; do
-        if [ -f "$path" ]; then
-            echo "$path"
+    for def_path in "${system_paths[@]}"; do
+        if [ -f "$def_path" ]; then
+            echo "$def_path"
             return 0
         fi
     done
 
-    # Try to download the generic definition
     local download_path="/tmp/curaengine-fdmprinter.def.json"
     if [ -f "$download_path" ]; then
         echo "$download_path"
@@ -155,13 +157,72 @@ find_printer_definition() {
     return 1
 }
 
+# Resolve profile name to a file path
+# Checks: .cfg first, then .curaprofile
+resolve_profile() {
+    local name="$1"
+
+    if [ -f "$PROFILES_DIR/$name.cfg" ]; then
+        echo "$PROFILES_DIR/$name.cfg"
+        return 0
+    fi
+
+    if [ -f "$PROFILES_DIR/$name.curaprofile" ]; then
+        echo "$PROFILES_DIR/$name.curaprofile"
+        return 0
+    fi
+
+    return 1
+}
+
+# Extract settings from a .curaprofile (ZIP) file into a temp .cfg
+# Returns path to the extracted .cfg file
+extract_curaprofile() {
+    local curaprofile="$1"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    local tmpcfg="$tmpdir/extracted.cfg"
+
+    # Extract all files from the ZIP
+    unzip -q -o "$curaprofile" -d "$tmpdir" 2>/dev/null
+
+    # Parse [values] sections from all extracted files, merge into one .cfg
+    # The global file (without "extruder") has the main settings
+    # The extruder file has per-extruder overrides
+    {
+        echo "# Extracted from: $(basename "$curaprofile")"
+        for f in "$tmpdir"/*; do
+            [ -f "$f" ] || continue
+            local in_values=false
+            while IFS= read -r line; do
+                if [[ "$line" == "[values]" ]]; then
+                    in_values=true
+                    continue
+                fi
+                if [[ "$line" == "["* ]]; then
+                    in_values=false
+                    continue
+                fi
+                if [ "$in_values" = true ] && [ -n "$line" ]; then
+                    echo "$line"
+                fi
+            done < "$f"
+        done
+    } | sort -u > "$tmpcfg"
+
+    echo "$tmpcfg"
+}
+
+# Build settings args array from a profile file (.cfg or extracted .curaprofile)
+# Populates the global SETTINGS_ARGS array
 build_settings_args() {
     local profile_file="$1"
-    local args=()
+    SETTINGS_ARGS=()
 
     while IFS= read -r line; do
-        # Skip comments and empty lines
-        line=$(echo "$line" | sed 's/#.*//' | xargs)
+        # Remove comments and trim whitespace
+        line="${line%%#*}"
+        line="$(echo "$line" | xargs 2>/dev/null || echo "")"
         if [ -z "$line" ]; then
             continue
         fi
@@ -169,13 +230,11 @@ build_settings_args() {
         # Parse key = value
         if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\ *=\ *(.+)$ ]]; then
             local key="${BASH_REMATCH[1]}"
-            local value="${BASH_REMATCH[2]}"
-            value=$(echo "$value" | xargs)  # Trim whitespace
-            args+=("-s" "${key}=${value}")
+            local value
+            value="$(echo "${BASH_REMATCH[2]}" | xargs)"
+            SETTINGS_ARGS+=("-s" "${key}=${value}")
         fi
     done < "$profile_file"
-
-    echo "${args[@]}"
 }
 
 # ---------- Process a Single STL File ----------
@@ -184,8 +243,7 @@ process_stl_file() {
     local stl_file="$1"
     local curaengine="$2"
     local definition="$3"
-    local profile_file="$4"
-    local profile_name="$5"
+    local profile_name="$4"
 
     if [ ! -f "$stl_file" ]; then
         echo -e "${RED}Error: File not found: $stl_file${NC}"
@@ -204,14 +262,12 @@ process_stl_file() {
 
     echo -e "  ${YELLOW}Generating G-code: $gcode_file${NC}"
 
-    # Build settings arguments from profile
-    local settings_args
-    settings_args=$(build_settings_args "$profile_file")
-
-    # Run CuraEngine
-    local cmd="$curaengine slice -j \"$definition\" $settings_args -l \"$stl_file\" -o \"$gcode_file\""
-
-    if eval "$cmd" 2>&1 | tail -5; then
+    # Run CuraEngine with settings from the global SETTINGS_ARGS array
+    if "$curaengine" slice \
+        -j "$definition" \
+        "${SETTINGS_ARGS[@]}" \
+        -l "$stl_file" \
+        -o "$gcode_file" 2>&1 | tail -5; then
         if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
             echo -e "  ${GREEN}G-code generated successfully${NC}"
             ls -lh "$gcode_file"
@@ -274,20 +330,41 @@ CURA_BIN=$(find_curaengine) || {
 
 echo -e "${BLUE}CuraEngine: ${CURA_BIN}${NC}"
 
-# Validate profile
-PROFILE_FILE="$PROFILES_DIR/$PROFILE.cfg"
-if [ ! -f "$PROFILE_FILE" ]; then
-    echo -e "${RED}Error: Profile not found: $PROFILE_FILE${NC}"
+# Resolve profile (supports .cfg and .curaprofile)
+PROFILE_FILE=$(resolve_profile "$PROFILE") || {
+    echo -e "${RED}Error: Profile not found: $PROFILE${NC}"
+    echo "Looked for: profiles/$PROFILE.cfg or profiles/$PROFILE.curaprofile"
+    echo ""
     echo "Available profiles:"
     for cfg in "$PROFILES_DIR"/*.cfg; do
-        if [ -f "$cfg" ]; then
-            echo "  $(basename "$cfg" .cfg)"
-        fi
+        [ -f "$cfg" ] && echo "  $(basename "$cfg" .cfg)"
+    done
+    for cp in "$PROFILES_DIR"/*.curaprofile; do
+        [ -f "$cp" ] && echo "  $(basename "$cp" .curaprofile)"
     done
     exit 1
+}
+
+# If it's a .curaprofile, extract the settings to a temp .cfg
+CLEANUP_TMPDIR=""
+if [[ "$PROFILE_FILE" == *.curaprofile ]]; then
+    echo -e "${BLUE}Profile: ${PROFILE} (${PROFILE_FILE}) [curaprofile]${NC}"
+    echo -e "${YELLOW}Extracting settings from Cura profile...${NC}"
+    PROFILE_FILE=$(extract_curaprofile "$PROFILE_FILE")
+    CLEANUP_TMPDIR=$(dirname "$PROFILE_FILE")
+else
+    echo -e "${BLUE}Profile: ${PROFILE} (${PROFILE_FILE})${NC}"
 fi
 
-echo -e "${BLUE}Profile: ${PROFILE} (${PROFILE_FILE})${NC}"
+# Build settings from profile
+SETTINGS_ARGS=()
+build_settings_args "$PROFILE_FILE"
+echo -e "${BLUE}Loaded ${#SETTINGS_ARGS[@]} setting arguments${NC}"
+
+# Clean up temp files if needed
+if [ -n "$CLEANUP_TMPDIR" ]; then
+    rm -rf "$CLEANUP_TMPDIR"
+fi
 
 # Find printer definition
 DEF_FILE=$(find_printer_definition) || {
@@ -326,7 +403,7 @@ success_count=0
 fail_count=0
 
 for stl_file in "${STL_FILES[@]}"; do
-    if process_stl_file "$stl_file" "$CURA_BIN" "$DEF_FILE" "$PROFILE_FILE" "$PROFILE"; then
+    if process_stl_file "$stl_file" "$CURA_BIN" "$DEF_FILE" "$PROFILE"; then
         ((success_count++))
     else
         ((fail_count++))
