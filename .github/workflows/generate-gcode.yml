@@ -1,0 +1,193 @@
+name: Generate G-code from STL files
+
+on:
+  push:
+    paths:
+      - '**/*.stl'
+      - 'profiles/*.cfg'
+      - 'profiles/*.curaprofile'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Filament profile to use'
+        required: false
+        default: 'pla-plus'
+        type: choice
+        options:
+          - pla-plus
+          - petg
+          - petg-cf
+
+permissions:
+  contents: write
+
+jobs:
+  generate-gcode:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install CuraEngine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cura-engine
+          CuraEngine help 2>&1 | head -5 || echo "CuraEngine installed"
+
+      - name: Find printer definition
+        id: find-definition
+        run: |
+          # Check for custom definition in repo
+          if [ -f "profiles/printer.def.json" ]; then
+            echo "definition=profiles/printer.def.json" >> "$GITHUB_OUTPUT"
+            echo "Using custom printer definition from profiles/"
+          else
+            # Search system paths
+            FOUND=""
+            for def_path in \
+              /usr/share/curaengine/fdmprinter.def.json \
+              /usr/share/cura-engine/fdmprinter.def.json \
+              /usr/share/cura/resources/definitions/fdmprinter.def.json; do
+              if [ -f "$def_path" ]; then
+                FOUND="$def_path"
+                break
+              fi
+            done
+
+            # Search with find as fallback
+            if [ -z "$FOUND" ]; then
+              FOUND=$(find /usr/share -name "fdmprinter.def.json" 2>/dev/null | head -1 || true)
+            fi
+
+            if [ -n "$FOUND" ]; then
+              echo "definition=$FOUND" >> "$GITHUB_OUTPUT"
+              echo "Found system definition: $FOUND"
+            else
+              # Download generic definition
+              echo "Downloading generic FDM printer definition..."
+              curl -sL "https://raw.githubusercontent.com/Ultimaker/Cura/main/resources/definitions/fdmprinter.def.json" \
+                -o /tmp/fdmprinter.def.json
+              echo "definition=/tmp/fdmprinter.def.json" >> "$GITHUB_OUTPUT"
+              echo "Downloaded generic definition"
+            fi
+          fi
+
+      - name: Determine profile
+        id: profile
+        env:
+          PROFILE_INPUT: ${{ github.event.inputs.profile }}
+        run: |
+          # Use workflow_dispatch input if available, otherwise default to pla
+          PROFILE="${PROFILE_INPUT:-pla-plus}"
+          echo "name=$PROFILE" >> "$GITHUB_OUTPUT"
+          echo "Using profile: $PROFILE"
+
+      - name: Generate G-code files
+        env:
+          PROFILE: ${{ steps.profile.outputs.name }}
+          DEFINITION: ${{ steps.find-definition.outputs.definition }}
+        run: |
+          PROFILE_FILE="profiles/${PROFILE}.cfg"
+
+          if [ ! -f "$PROFILE_FILE" ]; then
+            echo "Error: Profile not found: $PROFILE_FILE"
+            echo "Available profiles:"
+            ls profiles/*.cfg 2>/dev/null || echo "  (none)"
+            exit 1
+          fi
+
+          echo "Profile: $PROFILE ($PROFILE_FILE)"
+          echo "Definition: $DEFINITION"
+          echo ""
+
+          # Build settings arguments array from profile
+          SETTINGS_ARGS=()
+          while IFS= read -r line; do
+            # Remove comments and trim whitespace
+            line="${line%%#*}"
+            line="$(echo "$line" | xargs)"
+            if [ -z "$line" ]; then
+              continue
+            fi
+            if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\ *=\ *(.+)$ ]]; then
+              key="${BASH_REMATCH[1]}"
+              value="$(echo "${BASH_REMATCH[2]}" | xargs)"
+              SETTINGS_ARGS+=("-s" "${key}=${value}")
+            fi
+          done < "$PROFILE_FILE"
+
+          echo "Loaded ${#SETTINGS_ARGS[@]} setting arguments"
+          echo ""
+
+          # Find and process all STL files
+          find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort | while read -r stl_file; do
+            echo "Processing: $stl_file"
+
+            dir=$(dirname "$stl_file")
+            base=$(basename "$stl_file" .stl)
+            gcode_file="$dir/$base.$PROFILE.gcode"
+
+            echo "  Generating G-code: $gcode_file"
+
+            if CuraEngine slice \
+              -j "$DEFINITION" \
+              "${SETTINGS_ARGS[@]}" \
+              -l "$stl_file" \
+              -o "$gcode_file" 2>&1 | tail -5; then
+              if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
+                echo "  Generated successfully ($(du -h "$gcode_file" | cut -f1))"
+              else
+                echo "  Warning: G-code file empty or missing, skipping"
+                rm -f "$gcode_file"
+              fi
+            else
+              echo "  Warning: CuraEngine failed for $stl_file, skipping"
+              rm -f "$gcode_file"
+            fi
+
+            echo ""
+          done
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          # Add generated G-code files
+          git add -- '*.gcode' 2>/dev/null || true
+          git add -- '*/*.gcode' 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No G-code changes detected"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "G-code changes detected:"
+            git diff --cached --name-only
+          fi
+
+      - name: Commit and push generated files
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          PROFILE: ${{ steps.profile.outputs.name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Files to be committed:"
+          git diff --cached --name-only
+
+          changed_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
+
+          printf "%s\n\n%s\n%s\n\n%s" \
+            "Auto-generate G-code from STL files" \
+            "Profile: $PROFILE" \
+            "Generated files: $changed_files" \
+            "[skip ci]" > /tmp/commit-msg
+
+          git commit -F /tmp/commit-msg
+
+          echo "Pushing changes to $REF_NAME..."
+          git push origin "HEAD:$REF_NAME"

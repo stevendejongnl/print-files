@@ -1,38 +1,44 @@
 [
   {
     "name": "car-screen-support",
-    "description": "Car screen support mount",
+    "description": "3D printable design",
     "stl": "projects/car-screen-support/car-screen-support.stl",
     "preview": "projects/car-screen-support/car-screen-support.png",
     "scad": "projects/car-screen-support/car-screen-support.scad",
+    "gcode": null,
     "isPublic": true,
-    "category": "Mounting & Organization"
+    "category": "3D Prints"
   },
   {
-    "name": "eB Fan Shroud with LED Fixture",
-    "description": "Complete fan shroud design with 5mm straw hat LED fixture",
+    "name": "eB fan Shroud",
+    "description": "3D printable design",
     "stl": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.stl",
     "preview": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.png",
     "scad": null,
+    "gcode": null,
     "isPublic": true,
-    "category": "Cooling & Lighting"
+    "category": "3D Prints"
   },
   {
-    "name": "LED Grill Cover",
-    "description": "LED grill cover design",
+    "name": "led-grill",
+    "description": "3D printable design",
     "stl": "projects/led-grill/cover.stl",
     "preview": null,
     "scad": null,
+    "gcode": null,
     "isPublic": true,
-    "category": "Lighting"
+    "category": "3D Prints"
   },
   {
-    "name": "Spigen PD2101 Vertical Charger Mount",
-    "description": "Parametric mount for Spigen PD2101 vertical charger",
+    "name": "spigen-pd2101-mount",
+    "description": "3D printable design",
     "stl": "projects/spigen-pd2101-mount/spigen-pd2101-mount.stl",
     "preview": "projects/spigen-pd2101-mount/spigen-pd2101-mount.png",
     "scad": "projects/spigen-pd2101-mount/spigen-pd2101-mount.scad",
+    "gcode": [
+      "projects/spigen-pd2101-mount/spigen-pd2101-mount.petg-cf.gcode"
+    ],
     "isPublic": true,
-    "category": "Mounting & Organization"
+    "category": "3D Prints"
   }
 ]

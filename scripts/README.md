@@ -63,13 +63,116 @@ The generated PNG previews use these OpenSCAD settings:
 
 You can customize these settings by editing the script's `openscad` command parameters.
 
+## generate-gcode.sh
+
+Generates G-code files from STL models using CuraEngine with filament profiles.
+
+### Prerequisites
+
+CuraEngine must be installed on your system:
+
+- **Ubuntu/Debian:** `sudo apt-get install curaengine`
+- **macOS:** `brew install curaengine`
+- **Snap:** `sudo snap install cura-slicer`
+- **From source:** https://github.com/Ultimaker/CuraEngine
+
+### Usage
+
+**Slice all STL files with default profile (PLA):**
+```bash
+./scripts/generate-gcode.sh --all
+```
+
+**Slice specific file:**
+```bash
+./scripts/generate-gcode.sh project/model.stl
+```
+
+**Use a different filament profile:**
+```bash
+./scripts/generate-gcode.sh --profile petg project/model.stl
+./scripts/generate-gcode.sh --profile petg --all
+```
+
+**Use custom printer definition:**
+```bash
+./scripts/generate-gcode.sh --definition /path/to/printer.def.json model.stl
+```
+
+### Output
+
+For each STL file, the script generates a G-code file named `model.<profile>.gcode` in the same directory:
+
+- `model.stl` + `pla` profile -> `model.pla.gcode`
+- `model.stl` + `petg` profile -> `model.petg.gcode`
+
+### Filament Profiles
+
+Profiles are stored in `profiles/` as `.cfg` files with CuraEngine settings:
+
+| Profile | File | Description |
+|---------|------|-------------|
+| PLA | `profiles/pla.cfg` | Standard PLA (200C, 60C bed, 50mm/s) |
+| PETG | `profiles/petg.cfg` | Standard PETG (235C, 75C bed, 40mm/s) |
+
+To add a new profile, create a `.cfg` file in `profiles/`:
+
+```ini
+# My Custom Filament Profile
+material_print_temperature = 210
+material_bed_temperature = 65
+layer_height = 0.2
+speed_print = 45
+```
+
+### Printer Definition
+
+CuraEngine needs a printer definition JSON file. The script looks for it in this order:
+
+1. `--definition` flag
+2. `profiles/printer.def.json` (custom definition in repo)
+3. `CURA_DEFINITION` environment variable
+4. System CuraEngine definitions
+5. Auto-download of generic FDM definition
+
+### Example
+
+```bash
+$ ./scripts/generate-gcode.sh --profile pla spigen-pd2101-mount/spigen-pd2101-mount.stl
+
+CuraEngine: /usr/bin/CuraEngine
+Profile: pla (profiles/pla.cfg)
+Printer definition: /usr/share/curaengine/fdmprinter.def.json
+
+Processing 1 STL file(s) with profile 'pla'
+
+Processing: spigen-pd2101-mount/spigen-pd2101-mount.stl
+  Profile: pla
+  Generating G-code: spigen-pd2101-mount/spigen-pd2101-mount.pla.gcode
+  G-code generated successfully
+  -rw-r--r-- 1 user user 1.2M Jan 27 10:30 spigen-pd2101-mount/spigen-pd2101-mount.pla.gcode
+
+============================================================
+Completed: 1 succeeded
+All files processed successfully
+```
+
+---
+
 ## GitHub Actions Automation
 
-This repository also includes a GitHub Actions workflow that automatically:
+This repository also includes GitHub Actions workflows that automatically:
 
+**STL/PNG Generation** (`.github/workflows/generate-stl-png.yml`):
 1. Detects when `.scad` files are pushed to the repository
-2. Generates STL and PNG files using the same logic
+2. Generates STL and PNG files using OpenSCAD
 3. Commits and pushes the generated files back to the repository
+
+**G-code Generation** (`.github/workflows/generate-gcode.yml`):
+1. Detects when `.stl` files or profiles are pushed
+2. Slices STL files into G-code using CuraEngine with filament profiles
+3. Commits and pushes the generated G-code files back to the repository
+4. Can be manually triggered with profile selection (PLA, PETG)
 
 **Location:** `.github/workflows/generate-stl-png.yml`
 
@@ -218,6 +321,7 @@ In addition to local validation, this repository includes a GitHub Actions workf
 ```
 scripts/
 ├── generate-exports.sh      # Generate STL/PNG from SCAD
+├── generate-gcode.sh        # Generate G-code from STL
 ├── validate-yaml.sh         # Validate workflow YAML files
 ├── install-hooks.sh         # Install Git pre-commit hooks
 ├── hooks/
@@ -225,11 +329,21 @@ scripts/
 └── README.md               # This file
 ```
 
+## Profiles
+
+```
+profiles/
+├── README.md               # Profile documentation
+├── pla.cfg                 # PLA filament profile
+└── petg.cfg                # PETG filament profile
+```
+
 ## Workflows
 
 ```
 .github/workflows/
 ├── generate-stl-png.yml     # Auto-generate STL/PNG from SCAD
+├── generate-gcode.yml       # Auto-generate G-code from STL
 ├── sync-web-gallery.yml     # Auto-sync web gallery
 └── validate-yaml.yml        # Validate workflow YAML files
 ```
