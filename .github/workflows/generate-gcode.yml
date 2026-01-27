@@ -37,43 +37,31 @@ jobs:
           sudo apt-get install -y cura-engine
           CuraEngine help 2>&1 | head -5 || echo "CuraEngine installed"
 
-      - name: Find printer definition
+      - name: Download printer definitions
         id: find-definition
         run: |
-          # Check for custom definition in repo
+          # CuraEngine 4.13 (Ubuntu 22.04) needs Cura 4.13 definitions
+          # The cura-engine package only provides the binary, not definitions
+          DEFS_DIR="/tmp/cura-definitions"
+          mkdir -p "$DEFS_DIR"
+
+          # Check for custom definition in repo first
           if [ -f "profiles/printer.def.json" ]; then
-            echo "definition=profiles/printer.def.json" >> "$GITHUB_OUTPUT"
+            cp profiles/printer.def.json "$DEFS_DIR/"
             echo "Using custom printer definition from profiles/"
           else
-            # Search system paths
-            FOUND=""
-            for def_path in \
-              /usr/share/curaengine/fdmprinter.def.json \
-              /usr/share/cura-engine/fdmprinter.def.json \
-              /usr/share/cura/resources/definitions/fdmprinter.def.json; do
-              if [ -f "$def_path" ]; then
-                FOUND="$def_path"
-                break
-              fi
-            done
-
-            # Search with find as fallback
-            if [ -z "$FOUND" ]; then
-              FOUND=$(find /usr/share -name "fdmprinter.def.json" 2>/dev/null | head -1 || true)
-            fi
-
-            if [ -n "$FOUND" ]; then
-              echo "definition=$FOUND" >> "$GITHUB_OUTPUT"
-              echo "Found system definition: $FOUND"
-            else
-              # Download generic definition
-              echo "Downloading generic FDM printer definition..."
-              curl -sL "https://raw.githubusercontent.com/Ultimaker/Cura/main/resources/definitions/fdmprinter.def.json" \
-                -o /tmp/fdmprinter.def.json
-              echo "definition=/tmp/fdmprinter.def.json" >> "$GITHUB_OUTPUT"
-              echo "Downloaded generic definition"
-            fi
+            # Download version-matched definitions from Cura 4.13
+            echo "Downloading Cura 4.13 printer definitions..."
+            curl -sfL "https://raw.githubusercontent.com/Ultimaker/Cura/4.13/resources/definitions/fdmprinter.def.json" \
+              -o "$DEFS_DIR/fdmprinter.def.json"
+            curl -sfL "https://raw.githubusercontent.com/Ultimaker/Cura/4.13/resources/definitions/fdmextruder.def.json" \
+              -o "$DEFS_DIR/fdmextruder.def.json"
+            echo "Downloaded fdmprinter.def.json and fdmextruder.def.json"
           fi
+
+          echo "definition=$DEFS_DIR/fdmprinter.def.json" >> "$GITHUB_OUTPUT"
+          echo "search_path=$DEFS_DIR" >> "$GITHUB_OUTPUT"
+          ls -lh "$DEFS_DIR/"
 
       - name: Determine profile
         id: profile
@@ -89,6 +77,7 @@ jobs:
         env:
           PROFILE: ${{ steps.profile.outputs.name }}
           DEFINITION: ${{ steps.find-definition.outputs.definition }}
+          CURA_ENGINE_SEARCH_PATH: ${{ steps.find-definition.outputs.search_path }}
         run: |
           PROFILE_FILE="profiles/${PROFILE}.cfg"
 
@@ -101,6 +90,7 @@ jobs:
 
           echo "Profile: $PROFILE ($PROFILE_FILE)"
           echo "Definition: $DEFINITION"
+          echo "Search path: $CURA_ENGINE_SEARCH_PATH"
           echo ""
 
           # Build settings arguments array from profile
@@ -123,7 +113,9 @@ jobs:
           echo ""
 
           # Find and process all STL files
-          find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort | while read -r stl_file; do
+          GENERATED=0
+          FAILED=0
+          while IFS= read -r stl_file; do
             echo "Processing: $stl_file"
 
             dir=$(dirname "$stl_file")
@@ -136,20 +128,29 @@ jobs:
               -j "$DEFINITION" \
               "${SETTINGS_ARGS[@]}" \
               -l "$stl_file" \
-              -o "$gcode_file" 2>&1 | tail -5; then
+              -o "$gcode_file" 2>&1; then
               if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
                 echo "  Generated successfully ($(du -h "$gcode_file" | cut -f1))"
+                GENERATED=$((GENERATED + 1))
               else
-                echo "  Warning: G-code file empty or missing, skipping"
+                echo "  Warning: G-code file empty or missing"
                 rm -f "$gcode_file"
+                FAILED=$((FAILED + 1))
               fi
             else
-              echo "  Warning: CuraEngine failed for $stl_file, skipping"
+              echo "  Error: CuraEngine failed for $stl_file"
               rm -f "$gcode_file"
+              FAILED=$((FAILED + 1))
             fi
 
             echo ""
-          done
+          done < <(find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort)
+
+          echo "Summary: $GENERATED generated, $FAILED failed"
+          if [ "$GENERATED" -eq 0 ] && [ "$FAILED" -gt 0 ]; then
+            echo "Error: All STL files failed to generate G-code"
+            exit 1
+          fi
 
       - name: Check for changes
         id: check-changes
