@@ -11,9 +11,10 @@ on:
       profile:
         description: 'Filament profile to use'
         required: false
-        default: 'pla-plus'
+        default: 'all'
         type: choice
         options:
+          - all
           - pla-plus
           - petg
           - petg-cf
@@ -63,91 +64,107 @@ jobs:
           echo "search_path=$DEFS_DIR" >> "$GITHUB_OUTPUT"
           ls -lh "$DEFS_DIR/"
 
-      - name: Determine profile
-        id: profile
+      - name: Determine profiles
+        id: profiles
         env:
           PROFILE_INPUT: ${{ github.event.inputs.profile }}
         run: |
-          # Use workflow_dispatch input if available, otherwise default to pla
-          PROFILE="${PROFILE_INPUT:-pla-plus}"
-          echo "name=$PROFILE" >> "$GITHUB_OUTPUT"
-          echo "Using profile: $PROFILE"
+          SELECTION="${PROFILE_INPUT:-all}"
+          if [ "$SELECTION" = "all" ]; then
+            # Collect all .cfg profile names
+            PROFILES=""
+            for cfg in profiles/*.cfg; do
+              name=$(basename "$cfg" .cfg)
+              PROFILES="${PROFILES:+$PROFILES }$name"
+            done
+          else
+            PROFILES="$SELECTION"
+          fi
+          echo "list=$PROFILES" >> "$GITHUB_OUTPUT"
+          echo "Profiles to generate: $PROFILES"
 
       - name: Generate G-code files
         env:
-          PROFILE: ${{ steps.profile.outputs.name }}
+          PROFILES: ${{ steps.profiles.outputs.list }}
           DEFINITION: ${{ steps.find-definition.outputs.definition }}
           CURA_ENGINE_SEARCH_PATH: ${{ steps.find-definition.outputs.search_path }}
         run: |
-          PROFILE_FILE="profiles/${PROFILE}.cfg"
+          TOTAL_GENERATED=0
+          TOTAL_FAILED=0
 
-          if [ ! -f "$PROFILE_FILE" ]; then
-            echo "Error: Profile not found: $PROFILE_FILE"
-            echo "Available profiles:"
-            ls profiles/*.cfg 2>/dev/null || echo "  (none)"
-            exit 1
-          fi
+          for PROFILE in $PROFILES; do
+            echo "========================================"
+            echo "Profile: $PROFILE"
+            echo "========================================"
 
-          echo "Profile: $PROFILE ($PROFILE_FILE)"
-          echo "Definition: $DEFINITION"
-          echo "Search path: $CURA_ENGINE_SEARCH_PATH"
-          echo ""
+            PROFILE_FILE="profiles/${PROFILE}.cfg"
 
-          # Build settings arguments array from profile
-          SETTINGS_ARGS=()
-          while IFS= read -r line; do
-            # Remove comments and trim whitespace
-            line="${line%%#*}"
-            line="$(echo "$line" | xargs)"
-            if [ -z "$line" ]; then
+            if [ ! -f "$PROFILE_FILE" ]; then
+              echo "Warning: Profile not found: $PROFILE_FILE, skipping"
               continue
             fi
-            if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\ *=\ *(.+)$ ]]; then
-              key="${BASH_REMATCH[1]}"
-              value="$(echo "${BASH_REMATCH[2]}" | xargs)"
-              SETTINGS_ARGS+=("-s" "${key}=${value}")
-            fi
-          done < "$PROFILE_FILE"
 
-          echo "Loaded ${#SETTINGS_ARGS[@]} setting arguments"
-          echo ""
-
-          # Find and process all STL files
-          GENERATED=0
-          FAILED=0
-          while IFS= read -r stl_file; do
-            echo "Processing: $stl_file"
-
-            dir=$(dirname "$stl_file")
-            base=$(basename "$stl_file" .stl)
-            gcode_file="$dir/$base.$PROFILE.gcode"
-
-            echo "  Generating G-code: $gcode_file"
-
-            if CuraEngine slice \
-              -j "$DEFINITION" \
-              "${SETTINGS_ARGS[@]}" \
-              -l "$stl_file" \
-              -o "$gcode_file" 2>&1; then
-              if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
-                echo "  Generated successfully ($(du -h "$gcode_file" | cut -f1))"
-                GENERATED=$((GENERATED + 1))
-              else
-                echo "  Warning: G-code file empty or missing"
-                rm -f "$gcode_file"
-                FAILED=$((FAILED + 1))
-              fi
-            else
-              echo "  Error: CuraEngine failed for $stl_file"
-              rm -f "$gcode_file"
-              FAILED=$((FAILED + 1))
-            fi
-
+            echo "Definition: $DEFINITION"
+            echo "Search path: $CURA_ENGINE_SEARCH_PATH"
             echo ""
-          done < <(find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort)
 
-          echo "Summary: $GENERATED generated, $FAILED failed"
-          if [ "$GENERATED" -eq 0 ] && [ "$FAILED" -gt 0 ]; then
+            # Build settings arguments array from profile
+            SETTINGS_ARGS=()
+            while IFS= read -r line; do
+              # Remove comments and trim whitespace
+              line="${line%%#*}"
+              line="$(echo "$line" | xargs)"
+              if [ -z "$line" ]; then
+                continue
+              fi
+              if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\ *=\ *(.+)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                value="$(echo "${BASH_REMATCH[2]}" | xargs)"
+                SETTINGS_ARGS+=("-s" "${key}=${value}")
+              fi
+            done < "$PROFILE_FILE"
+
+            echo "Loaded ${#SETTINGS_ARGS[@]} setting arguments"
+            echo ""
+
+            # Find and process all STL files
+            while IFS= read -r stl_file; do
+              echo "Processing: $stl_file"
+
+              dir=$(dirname "$stl_file")
+              base=$(basename "$stl_file" .stl)
+              gcode_file="$dir/$base.$PROFILE.gcode"
+
+              echo "  Generating G-code: $gcode_file"
+
+              if CuraEngine slice \
+                -j "$DEFINITION" \
+                "${SETTINGS_ARGS[@]}" \
+                -l "$stl_file" \
+                -o "$gcode_file" 2>&1; then
+                if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
+                  echo "  Generated successfully ($(du -h "$gcode_file" | cut -f1))"
+                  TOTAL_GENERATED=$((TOTAL_GENERATED + 1))
+                else
+                  echo "  Warning: G-code file empty or missing"
+                  rm -f "$gcode_file"
+                  TOTAL_FAILED=$((TOTAL_FAILED + 1))
+                fi
+              else
+                echo "  Error: CuraEngine failed for $stl_file"
+                rm -f "$gcode_file"
+                TOTAL_FAILED=$((TOTAL_FAILED + 1))
+              fi
+
+              echo ""
+            done < <(find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort)
+
+          done
+
+          echo "========================================"
+          echo "Summary: $TOTAL_GENERATED generated, $TOTAL_FAILED failed"
+          echo "========================================"
+          if [ "$TOTAL_GENERATED" -eq 0 ] && [ "$TOTAL_FAILED" -gt 0 ]; then
             echo "Error: All STL files failed to generate G-code"
             exit 1
           fi
@@ -171,7 +188,7 @@ jobs:
       - name: Commit and push generated files
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
-          PROFILE: ${{ steps.profile.outputs.name }}
+          PROFILES: ${{ steps.profiles.outputs.list }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
@@ -184,7 +201,7 @@ jobs:
 
           printf "%s\n\n%s\n%s\n\n%s" \
             "Auto-generate G-code from STL files" \
-            "Profile: $PROFILE" \
+            "Profiles: $PROFILES" \
             "Generated files: $changed_files" \
             "[skip ci]" > /tmp/commit-msg
 
