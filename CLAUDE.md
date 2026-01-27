@@ -29,12 +29,18 @@ print-files/
 │       ├── eB fan Shroud/
 │       ├── led-grill/
 │       └── spigen-pd2101-mount/
+├── profiles/                      # CuraEngine slicing profiles
+│   ├── README.md                  # Profile documentation
+│   ├── pla.cfg                    # PLA filament profile
+│   └── petg.cfg                   # PETG filament profile
 ├── .github/
 │   └── workflows/
 │       ├── generate-stl-png.yml   # Automated STL/PNG generation
+│       ├── generate-gcode.yml     # Automated G-code generation
 │       └── sync-web-gallery.yml   # Auto-sync web gallery
 ├── scripts/
-│   ├── generate-exports.sh        # Local automation script
+│   ├── generate-exports.sh        # Local STL/PNG automation script
+│   ├── generate-gcode.sh          # Local G-code generation script
 │   └── README.md                  # Scripts documentation
 ├── eB fan Shroud/                 # Complete fan shroud design with LED fixture
 │   ├── eB fan shroud with 5mm straw hat fixture.stl  (953 KB)
@@ -769,12 +775,93 @@ Edit `.github/workflows/generate-stl-png.yml` to change preview settings:
 --camera=0,0,0,60,0,25,500  # Camera position and angle
 ```
 
+### G-code Generation
+
+This repository supports automated G-code generation from STL files using CuraEngine with configurable filament profiles.
+
+#### Slicing Profiles
+
+**Location:** `profiles/`
+
+Profiles are simple key-value `.cfg` files containing CuraEngine settings. Included profiles:
+
+- `pla.cfg` - Standard PLA (200C nozzle, 60C bed, 50mm/s)
+- `petg.cfg` - Standard PETG (235C nozzle, 75C bed, 40mm/s)
+
+To add a new profile, create a `.cfg` file in `profiles/` with CuraEngine settings:
+
+```ini
+# My custom filament
+material_print_temperature = 210
+material_bed_temperature = 65
+layer_height = 0.2
+speed_print = 45
+```
+
+#### Local G-code Script
+
+**Location:** `scripts/generate-gcode.sh`
+
+**What it does:**
+- Slices STL files into G-code using CuraEngine
+- Reads settings from filament profiles in `profiles/`
+- Outputs `model.<profile>.gcode` alongside the STL file
+
+**Usage:**
+```bash
+# Slice all STL files with PLA profile (default)
+./scripts/generate-gcode.sh --all
+
+# Slice specific file with PETG profile
+./scripts/generate-gcode.sh --profile petg project/model.stl
+
+# Use custom printer definition
+./scripts/generate-gcode.sh --definition /path/to/printer.def.json model.stl
+```
+
+**Requirements:**
+- CuraEngine installed locally
+- Ubuntu: `sudo apt-get install curaengine`
+- macOS: `brew install curaengine`
+
+**Output format:**
+- G-code files named `model.<profile>.gcode` (e.g., `model.pla.gcode`)
+- Multiple profiles can generate separate G-code files for the same STL
+
+#### GitHub Actions G-code Workflow
+
+**Location:** `.github/workflows/generate-gcode.yml`
+
+**Triggers:**
+- Automatically when `.stl` or `profiles/*.cfg` files are pushed
+- Manually via Actions tab with profile selection
+
+**What it does:**
+1. Installs CuraEngine in CI environment
+2. Locates or downloads printer definition
+3. Reads settings from the selected filament profile
+4. Generates G-code for each STL file in the repository
+5. Commits generated G-code files back to the repository
+
+**Manual trigger with profile selection:**
+1. Navigate to Actions tab
+2. Select "Generate G-code from STL files"
+3. Click "Run workflow"
+4. Choose the filament profile (PLA, PETG)
+5. Confirm
+
+**Printer Definition Resolution:**
+The workflow looks for a printer definition in this order:
+1. `profiles/printer.def.json` (custom definition in repo)
+2. System CuraEngine definitions
+3. Auto-download of generic FDM printer definition
+
 ### Web Gallery Sync Workflow
 
 **Location:** `.github/workflows/sync-web-gallery.yml`
 
 **Triggers:**
-- Any push to `.stl`, `.png`, `.scad` files
+- Any push to `.stl`, `.png`, `.scad`, `.gcode` files
 - Manually via Actions tab → "Run workflow"
 
 **What it does:**
@@ -827,10 +914,12 @@ The workflow automatically creates `projects.json` entries:
 **Do:**
 - ✅ Commit `.scad` source files first
 - ✅ Let automation generate STL/PNG (don't commit manual exports)
+- ✅ Let automation generate G-code from STL files
 - ✅ Let automation sync files to docs/ (don't manually copy)
 - ✅ Review auto-generated files after workflow completes
 - ✅ Pull latest changes after GitHub Actions runs
-- ✅ Use local script for quick iteration during development
+- ✅ Use local scripts for quick iteration during development
+- ✅ Customize filament profiles in `profiles/` for your printer
 
 **Don't:**
 - ❌ Manually export and commit STL/PNG alongside `.scad` changes
@@ -838,6 +927,7 @@ The workflow automatically creates `projects.json` entries:
 - ❌ Manually edit `docs/projects.json` (will be overwritten)
 - ❌ Edit generated files directly (changes will be overwritten)
 - ❌ Commit large STL files if `.scad` source is available
+- ❌ Edit G-code files directly (regenerate from profiles instead)
 - ❌ Ignore workflow failures (check Actions tab for errors)
 
 ### Workflow Integration
@@ -861,9 +951,10 @@ git push
 
 # 5. GitHub Actions automatically:
 #    - Generates STL/PNG from SCAD (workflow 1)
-#    - Syncs files to docs/projects/ (workflow 2)
-#    - Updates projects.json (workflow 2)
-# Wait ~3-5 minutes for both workflows to complete
+#    - Generates G-code from STL (workflow 2)
+#    - Syncs files to docs/projects/ (workflow 3)
+#    - Updates projects.json (workflow 3)
+# Wait ~3-5 minutes for all workflows to complete
 
 # 6. Pull generated files and gallery updates
 git pull
@@ -875,13 +966,28 @@ ls -lh myproject/
 
 **For urgent local testing:**
 ```bash
-# Generate and test immediately without waiting for CI
+# Generate STL/PNG and test immediately without waiting for CI
 ./scripts/generate-exports.sh myproject/design.scad
 # Test the STL in your slicer
 # When satisfied, commit everything together
 git add myproject/
 git commit -m "Update design with tested exports"
 git push
+```
+
+**For local G-code generation:**
+```bash
+# Generate G-code with PLA profile
+./scripts/generate-gcode.sh --profile pla myproject/model.stl
+
+# Generate G-code with PETG profile
+./scripts/generate-gcode.sh --profile petg myproject/model.stl
+
+# Generate G-code for all STL files
+./scripts/generate-gcode.sh --all --profile pla
+
+# Upload to printer directly
+# The generated .gcode file is ready for your printer
 ```
 
 ---
@@ -1014,7 +1120,9 @@ $fs = 2;             // Minimum size
 ✅ **Completed:**
 - Interactive web gallery with 3D viewer
 - Automatic STL/PNG generation from SCAD
-- Automatic web gallery synchronization
+- Automatic G-code generation from STL with filament profiles
+- Automatic web gallery synchronization (including G-code downloads)
+- Filament profile system (PLA, PETG) for CuraEngine
 - Detailed README.md and CLAUDE.md documentation
 
 ### Future Improvements

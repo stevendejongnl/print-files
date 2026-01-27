@@ -190,6 +190,11 @@
             color: white;
         }
 
+        .badge.gcode {
+            background: #f39c12;
+            color: white;
+        }
+
         .badge.public {
             background: #27ae60;
             color: white;
@@ -544,6 +549,7 @@
                 const badges = [];
                 if (project.stl) badges.push('<span class="badge stl">STL</span>');
                 if (project.scad) badges.push('<span class="badge scad">SCAD</span>');
+                if (project.gcode && project.gcode.length > 0) badges.push('<span class="badge gcode">GCODE</span>');
 
                 card.innerHTML = `
                     <div class="thumbnail">
@@ -589,6 +595,13 @@
 
             if (project.stl) {
                 downloadLinks.innerHTML += `<a href="${project.stl}" download class="download-btn">📥 Download STL</a>`;
+            }
+            if (project.gcode && project.gcode.length > 0) {
+                project.gcode.forEach(gcodePath => {
+                    const filename = gcodePath.split('/').pop();
+                    const profileName = filename.replace(/.*\.(\w+)\.gcode$/, '$1').toUpperCase();
+                    downloadLinks.innerHTML += `<a href="${gcodePath}" download class="download-btn" style="background:#f39c12">🖨️ G-code (${profileName})</a>`;
+                });
             }
             if (project.scad) {
                 downloadLinks.innerHTML += `<a href="${project.scad}" download class="download-btn">📄 Download SCAD</a>`;

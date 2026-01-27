@@ -6,6 +6,7 @@ on:
       - '**/*.stl'
       - '**/*.png'
       - '**/*.scad'
+      - '**/*.gcode'
   workflow_dispatch:
 
 permissions:
@@ -44,7 +45,7 @@ jobs:
 
             # Check if directory contains any 3D files
             has_files=false
-            for ext in stl png scad; do
+            for ext in stl png scad gcode; do
               if compgen -G "$project_dir/*.$ext" > /dev/null; then
                 has_files=true
                 break
@@ -59,6 +60,7 @@ jobs:
               cp "$project_dir"/*.stl "docs/projects/$project_dir/" 2>/dev/null || true
               cp "$project_dir"/*.png "docs/projects/$project_dir/" 2>/dev/null || true
               cp "$project_dir"/*.scad "docs/projects/$project_dir/" 2>/dev/null || true
+              cp "$project_dir"/*.gcode "docs/projects/$project_dir/" 2>/dev/null || true
 
               echo "  ✓ Synced: $project_dir"
             fi
@@ -85,10 +87,16 @@ jobs:
                   stl_files = list(project_path.glob("*.stl"))
                   png_files = list(project_path.glob("*.png"))
                   scad_files = list(project_path.glob("*.scad"))
+                  gcode_files = sorted(project_path.glob("*.gcode"))
 
                   # Skip if no STL or SCAD
                   if not stl_files and not scad_files:
                       continue
+
+                  # Build G-code entries list
+                  gcode_list = [
+                      f"projects/{project_name}/{g.name}" for g in gcode_files
+                  ]
 
                   # Build project entry
                   project = {
@@ -97,6 +105,7 @@ jobs:
                       "stl": f"projects/{project_name}/{stl_files[0].name}" if stl_files else None,
                       "preview": f"projects/{project_name}/{png_files[0].name}" if png_files else None,
                       "scad": f"projects/{project_name}/{scad_files[0].name}" if scad_files else None,
+                      "gcode": gcode_list if gcode_list else None,
                       "isPublic": True,
                       "category": "3D Prints"
                   }
