@@ -45,12 +45,12 @@ jobs:
           else
             # Search system paths
             FOUND=""
-            for path in \
+            for def_path in \
               /usr/share/curaengine/fdmprinter.def.json \
               /usr/share/cura-engine/fdmprinter.def.json \
               /usr/share/cura/resources/definitions/fdmprinter.def.json; do
-              if [ -f "$path" ]; then
-                FOUND="$path"
+              if [ -f "$def_path" ]; then
+                FOUND="$def_path"
                 break
               fi
             done
@@ -75,19 +75,19 @@ jobs:
 
       - name: Determine profile
         id: profile
+        env:
+          PROFILE_INPUT: ${{ github.event.inputs.profile }}
         run: |
           # Use workflow_dispatch input if available, otherwise default to pla
-          PROFILE="${{ github.event.inputs.profile }}"
-          if [ -z "$PROFILE" ]; then
-            PROFILE="pla"
-          fi
+          PROFILE="${PROFILE_INPUT:-pla}"
           echo "name=$PROFILE" >> "$GITHUB_OUTPUT"
           echo "Using profile: $PROFILE"
 
       - name: Generate G-code files
+        env:
+          PROFILE: ${{ steps.profile.outputs.name }}
+          DEFINITION: ${{ steps.find-definition.outputs.definition }}
         run: |
-          PROFILE="${{ steps.profile.outputs.name }}"
-          DEFINITION="${{ steps.find-definition.outputs.definition }}"
           PROFILE_FILE="profiles/${PROFILE}.cfg"
 
           if [ ! -f "$PROFILE_FILE" ]; then
@@ -101,20 +101,24 @@ jobs:
           echo "Definition: $DEFINITION"
           echo ""
 
-          # Build settings arguments from profile
-          SETTINGS_ARGS=""
+          # Build settings arguments array from profile
+          SETTINGS_ARGS=()
           while IFS= read -r line; do
-            # Remove comments and trim
-            line=$(echo "$line" | sed 's/#.*//' | xargs)
+            # Remove comments and trim whitespace
+            line="${line%%#*}"
+            line="$(echo "$line" | xargs)"
             if [ -z "$line" ]; then
               continue
             fi
             if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)\ *=\ *(.+)$ ]]; then
               key="${BASH_REMATCH[1]}"
-              value=$(echo "${BASH_REMATCH[2]}" | xargs)
-              SETTINGS_ARGS="$SETTINGS_ARGS -s ${key}=${value}"
+              value="$(echo "${BASH_REMATCH[2]}" | xargs)"
+              SETTINGS_ARGS+=("-s" "${key}=${value}")
             fi
           done < "$PROFILE_FILE"
+
+          echo "Loaded ${#SETTINGS_ARGS[@]} setting arguments"
+          echo ""
 
           # Find and process all STL files
           find . -name "*.stl" -not -path "./.git/*" -not -path "./docs/*" | sort | while read -r stl_file; do
@@ -128,7 +132,7 @@ jobs:
 
             if CuraEngine slice \
               -j "$DEFINITION" \
-              $SETTINGS_ARGS \
+              "${SETTINGS_ARGS[@]}" \
               -l "$stl_file" \
               -o "$gcode_file" 2>&1 | tail -5; then
               if [ -f "$gcode_file" ] && [ -s "$gcode_file" ]; then
@@ -149,8 +153,8 @@ jobs:
         id: check-changes
         run: |
           # Add generated G-code files
-          git add -- *.gcode 2>/dev/null || true
-          git add -- */*.gcode 2>/dev/null || true
+          git add -- '*.gcode' 2>/dev/null || true
+          git add -- '*/*.gcode' 2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
@@ -163,11 +167,12 @@ jobs:
 
       - name: Commit and push generated files
         if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          PROFILE: ${{ steps.profile.outputs.name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          PROFILE="${{ steps.profile.outputs.name }}"
 
           echo "Files to be committed:"
           git diff --cached --name-only
@@ -182,5 +187,5 @@ jobs:
 
           git commit -F /tmp/commit-msg
 
-          echo "Pushing changes to ${{ github.ref_name }}..."
-          git push origin HEAD:${{ github.ref_name }}
+          echo "Pushing changes to $REF_NAME..."
+          git push origin "HEAD:$REF_NAME"
