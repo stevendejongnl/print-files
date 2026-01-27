@@ -5,7 +5,11 @@
     "stl": "projects/car-screen-support/car-screen-support.stl",
     "preview": "projects/car-screen-support/car-screen-support.png",
     "scad": "projects/car-screen-support/car-screen-support.scad",
-    "gcode": null,
+    "gcode": [
+      "projects/car-screen-support/car-screen-support.petg-cf.gcode",
+      "projects/car-screen-support/car-screen-support.petg.gcode",
+      "projects/car-screen-support/car-screen-support.pla-plus.gcode"
+    ],
     "isPublic": true,
     "category": "3D Prints"
   },
@@ -15,7 +19,11 @@
     "stl": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.stl",
     "preview": "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.png",
     "scad": null,
-    "gcode": null,
+    "gcode": [
+      "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.petg-cf.gcode",
+      "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.petg.gcode",
+      "projects/eB fan Shroud/eB fan shroud with 5mm straw hat fixture.pla-plus.gcode"
+    ],
     "isPublic": true,
     "category": "3D Prints"
   },
@@ -25,7 +33,11 @@
     "stl": "projects/led-grill/cover.stl",
     "preview": null,
     "scad": null,
-    "gcode": null,
+    "gcode": [
+      "projects/led-grill/cover.petg-cf.gcode",
+      "projects/led-grill/cover.petg.gcode",
+      "projects/led-grill/cover.pla-plus.gcode"
+    ],
     "isPublic": true,
     "category": "3D Prints"
   },
@@ -36,7 +48,9 @@
     "preview": "projects/spigen-pd2101-mount/spigen-pd2101-mount.png",
     "scad": "projects/spigen-pd2101-mount/spigen-pd2101-mount.scad",
     "gcode": [
-      "projects/spigen-pd2101-mount/spigen-pd2101-mount.petg-cf.gcode"
+      "projects/spigen-pd2101-mount/spigen-pd2101-mount.petg-cf.gcode",
+      "projects/spigen-pd2101-mount/spigen-pd2101-mount.petg.gcode",
+      "projects/spigen-pd2101-mount/spigen-pd2101-mount.pla-plus.gcode"
     ],
     "isPublic": true,
     "category": "3D Prints"
