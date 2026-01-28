@@ -536,6 +536,43 @@ When possible, document:
 - Any design adjustments needed
 - Assembly notes
 
+### For Workflow YAML and Shell Scripts
+
+**Always validate locally before pushing** to avoid CI failures.
+
+1. **Shellcheck (required before pushing workflow changes):**
+   ```bash
+   # Install shellcheck
+   pip install shellcheck-py   # via pip
+   # or: sudo apt-get install shellcheck   # Ubuntu
+   # or: brew install shellcheck            # macOS
+
+   # Extract and test a script block from a workflow
+   # Copy the run: | block contents into a temp file, then:
+   shellcheck /tmp/test-script.sh
+   ```
+
+2. **Actionlint (recommended for full workflow validation):**
+   ```bash
+   # Install actionlint
+   brew install actionlint      # macOS
+   # or download from: https://github.com/rhysd/actionlint/releases
+
+   # Validate all workflow files
+   actionlint .github/workflows/*.yml
+   ```
+
+3. **Local validation script:**
+   ```bash
+   ./scripts/validate-yaml.sh
+   ```
+
+**Common shellcheck pitfalls in GitHub Actions workflows:**
+- `# shellcheck disable=SC2153` — no text after the code (no `--` comments)
+- Use `{ cmd1; cmd2; } >> file` instead of multiple `>> file` redirects (SC2129)
+- Variables set via `env:` blocks are invisible to shellcheck — suppress SC2153
+- Always quote `${{ }}` expressions via `env:` blocks to avoid expression injection
+
 ---
 
 ## Common Tasks for AI Assistants
