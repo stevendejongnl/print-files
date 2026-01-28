@@ -97,10 +97,10 @@ jobs:
           DEFINITION: ${{ steps.cura.outputs.definition }}
           CURA_ENGINE_SEARCH_PATH: ${{ steps.cura.outputs.search_path }}
         run: |
-          # shellcheck disable=SC2153
           TOTAL_GENERATED=0
           TOTAL_FAILED=0
 
+          # shellcheck disable=SC2153
           for PROFILE in $PROFILES; do
             echo "========================================"
             echo "Profile: $PROFILE"
