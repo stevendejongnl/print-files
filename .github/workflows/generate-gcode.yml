@@ -97,7 +97,7 @@ jobs:
           DEFINITION: ${{ steps.cura.outputs.definition }}
           CURA_ENGINE_SEARCH_PATH: ${{ steps.cura.outputs.search_path }}
         run: |
-          # shellcheck disable=SC2153 -- PROFILES is set via env: block
+          # shellcheck disable=SC2153
           TOTAL_GENERATED=0
           TOTAL_FAILED=0
 
