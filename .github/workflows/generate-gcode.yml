@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   generate-gcode:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -32,37 +32,42 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install CuraEngine
+      - name: Install CuraEngine from Cura AppImage
+        id: cura
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cura-engine
-          CuraEngine help 2>&1 | head -5 || echo "CuraEngine installed"
+          CURA_VERSION="5.9.0"
+          APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
 
-      - name: Download printer definitions
-        id: find-definition
-        run: |
-          # CuraEngine 4.13 (Ubuntu 22.04) needs Cura 4.13 definitions
-          # The cura-engine package only provides the binary, not definitions
-          DEFS_DIR="/tmp/cura-definitions"
-          mkdir -p "$DEFS_DIR"
+          echo "Downloading Cura ${CURA_VERSION} AppImage..."
+          curl -sL "https://github.com/Ultimaker/Cura/releases/download/${CURA_VERSION}/${APPIMAGE}" \
+            -o "/tmp/${APPIMAGE}"
 
-          # Check for custom definition in repo first
-          if [ -f "profiles/printer.def.json" ]; then
-            cp profiles/printer.def.json "$DEFS_DIR/"
-            echo "Using custom printer definition from profiles/"
-          else
-            # Download version-matched definitions from Cura 4.13
-            echo "Downloading Cura 4.13 printer definitions..."
-            curl -sfL "https://raw.githubusercontent.com/Ultimaker/Cura/4.13/resources/definitions/fdmprinter.def.json" \
-              -o "$DEFS_DIR/fdmprinter.def.json"
-            curl -sfL "https://raw.githubusercontent.com/Ultimaker/Cura/4.13/resources/definitions/fdmextruder.def.json" \
-              -o "$DEFS_DIR/fdmextruder.def.json"
-            echo "Downloaded fdmprinter.def.json and fdmextruder.def.json"
+          chmod +x "/tmp/${APPIMAGE}"
+          echo "Extracting CuraEngine and definitions..."
+          cd /tmp && "./${APPIMAGE}" --appimage-extract >/dev/null 2>&1
+
+          # Locate CuraEngine binary
+          CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f -executable | head -1)
+          if [ -z "$CURA_ENGINE" ]; then
+            echo "Error: CuraEngine binary not found in AppImage"
+            find /tmp/squashfs-root -name "CuraEngine*" -type f
+            exit 1
           fi
+          echo "Found CuraEngine: $CURA_ENGINE"
+          "$CURA_ENGINE" help 2>&1 | head -3 || true
 
-          echo "definition=$DEFS_DIR/fdmprinter.def.json" >> "$GITHUB_OUTPUT"
+          # Locate definitions directory
+          DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f | head -1)
+          if [ -z "$DEFS_FILE" ]; then
+            echo "Error: fdmprinter.def.json not found in AppImage"
+            exit 1
+          fi
+          DEFS_DIR=$(dirname "$DEFS_FILE")
+          echo "Found definitions: $DEFS_DIR"
+
+          echo "engine=$CURA_ENGINE" >> "$GITHUB_OUTPUT"
+          echo "definition=$DEFS_FILE" >> "$GITHUB_OUTPUT"
           echo "search_path=$DEFS_DIR" >> "$GITHUB_OUTPUT"
-          ls -lh "$DEFS_DIR/"
 
       - name: Determine profiles
         id: profiles
@@ -86,8 +91,9 @@ jobs:
       - name: Generate G-code files
         env:
           PROFILES: ${{ steps.profiles.outputs.list }}
-          DEFINITION: ${{ steps.find-definition.outputs.definition }}
-          CURA_ENGINE_SEARCH_PATH: ${{ steps.find-definition.outputs.search_path }}
+          CURA_ENGINE: ${{ steps.cura.outputs.engine }}
+          DEFINITION: ${{ steps.cura.outputs.definition }}
+          CURA_ENGINE_SEARCH_PATH: ${{ steps.cura.outputs.search_path }}
         run: |
           TOTAL_GENERATED=0
           TOTAL_FAILED=0
@@ -137,7 +143,7 @@ jobs:
 
               echo "  Generating G-code: $gcode_file"
 
-              if CuraEngine slice \
+              if "$CURA_ENGINE" slice \
                 -j "$DEFINITION" \
                 "${SETTINGS_ARGS[@]}" \
                 -l "$stl_file" \
@@ -172,9 +178,9 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          # Add generated G-code files
-          git add -- '*.gcode' 2>/dev/null || true
-          git add -- '*/*.gcode' 2>/dev/null || true
+          # Add all generated G-code files using find for reliable matching
+          find . -name '*.gcode' -not -path './.git/*' -not -path './docs/*' \
+            -exec git add {} +
 
           if git diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
