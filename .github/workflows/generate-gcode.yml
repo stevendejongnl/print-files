@@ -172,9 +172,9 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          # Add generated G-code files
-          git add -- '*.gcode' 2>/dev/null || true
-          git add -- '*/*.gcode' 2>/dev/null || true
+          # Add all generated G-code files using find for reliable matching
+          find . -name '*.gcode' -not -path './.git/*' -not -path './docs/*' \
+            -exec git add {} +
 
           if git diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
