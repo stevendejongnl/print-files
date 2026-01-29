@@ -32,34 +32,54 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install CuraEngine from Cura AppImage
+      - name: Install CuraEngine
         id: cura
         run: |
-          CURA_VERSION="5.9.0"
-          APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
+          echo "Installing CuraEngine from system packages..."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curaengine > /dev/null 2>&1
 
-          echo "Downloading Cura ${CURA_VERSION} AppImage..."
-          curl -sL "https://github.com/Ultimaker/Cura/releases/download/${CURA_VERSION}/${APPIMAGE}" \
-            -o "/tmp/${APPIMAGE}"
+          # Verify installation
+          if ! command -v CuraEngine &> /dev/null; then
+            echo "CuraEngine not found in system packages, trying Cura AppImage..."
 
-          chmod +x "/tmp/${APPIMAGE}"
-          echo "Extracting CuraEngine and definitions..."
-          cd /tmp && "./${APPIMAGE}" --appimage-extract >/dev/null 2>&1
+            CURA_VERSION="5.9.0"
+            APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
+            APPIMAGE_PATH="/tmp/${APPIMAGE}"
 
-          # Locate CuraEngine binary
-          CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f -executable | head -1)
-          if [ -z "$CURA_ENGINE" ]; then
-            echo "Error: CuraEngine binary not found in AppImage"
-            find /tmp/squashfs-root -name "CuraEngine*" -type f
-            exit 1
+            echo "Downloading Cura ${CURA_VERSION} AppImage..."
+            curl -sL "https://github.com/Ultimaker/Cura/releases/download/${CURA_VERSION}/${APPIMAGE}" \
+              -o "$APPIMAGE_PATH"
+
+            chmod +x "$APPIMAGE_PATH"
+            echo "Extracting CuraEngine and definitions..."
+            cd /tmp && "$APPIMAGE_PATH" --appimage-extract >/dev/null 2>&1
+
+            # Locate CuraEngine binary
+            CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f | head -1)
+            if [ -z "$CURA_ENGINE" ]; then
+              echo "Error: CuraEngine binary not found in AppImage"
+              exit 1
+            fi
+            chmod +x "$CURA_ENGINE"
+
+            # Install missing libraries that AppImage needs
+            echo "Installing runtime libraries for AppImage..."
+            sudo apt-get install -y -qq libqt5gui5 libqt5core5a libqt5xml5 > /dev/null 2>&1 || true
+          else
+            CURA_ENGINE="CuraEngine"
+            echo "CuraEngine installed successfully"
           fi
-          echo "Found CuraEngine: $CURA_ENGINE"
-          "$CURA_ENGINE" help 2>&1 | head -3 || true
 
-          # Locate definitions directory
-          DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f | head -1)
-          if [ -z "$DEFS_FILE" ]; then
-            echo "Error: fdmprinter.def.json not found in AppImage"
+          echo "CuraEngine path: $CURA_ENGINE"
+
+          # Try to get definitions from system first, fallback to AppImage
+          DEFS_FILE="/usr/share/cura/resources/definitions/fdmprinter.def.json"
+          if [ ! -f "$DEFS_FILE" ]; then
+            DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f 2>/dev/null | head -1)
+          fi
+          if [ ! -f "$DEFS_FILE" ]; then
+            echo "Error: fdmprinter.def.json not found"
             exit 1
           fi
           DEFS_DIR=$(dirname "$DEFS_FILE")
