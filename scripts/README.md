@@ -316,6 +316,78 @@ In addition to local validation, this repository includes a GitHub Actions workf
 
 ---
 
+## Local Testing with act
+
+Test GitHub Actions workflows locally without pushing to GitHub using `act`.
+
+### What is act?
+
+`act` is a tool that runs GitHub Actions workflows locally using Docker containers. This allows you to:
+- Test workflows before pushing to GitHub
+- Debug workflow issues faster
+- Save GitHub Actions minutes
+- Iterate quickly on workflow changes
+
+### Prerequisites
+
+- Docker must be running
+- `act` must be installed:
+  - **macOS:** `brew install act`
+  - **Linux:** See https://github.com/nektos/act
+
+### Configuration
+
+The repository includes `.actrc` configuration for optimal local testing with the full Ubuntu image that includes all common tools.
+
+### Usage Examples
+
+**Test G-code generation workflow with specific profile:**
+```bash
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --input profile=pla-plus
+```
+
+**Test G-code generation with all profiles:**
+```bash
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --input profile=all
+```
+
+**Test STL/PNG generation:**
+```bash
+act push -W .github/workflows/generate-stl-png.yml
+```
+
+**Test web gallery sync:**
+```bash
+act push -W .github/workflows/sync-web-gallery.yml
+```
+
+### Limitations
+
+- First run downloads large Docker image (~10GB)
+- Some GitHub-specific features may not work exactly the same
+- Commit/push operations won't affect remote repository
+- Always verify critical changes on GitHub Actions before merging
+
+### Troubleshooting
+
+**"Cannot connect to Docker daemon"**
+```bash
+sudo systemctl start docker
+```
+
+**"Permission denied"**
+```bash
+sudo usermod -aG docker $USER
+# Log out and back in
+```
+
+**"Workflow doesn't run"**
+- Check that you're in the repository root
+- Verify Docker is running: `docker ps`
+- Try with `--verbose` flag for detailed output
+
+---
+
 ## Directory Structure
 
 ```

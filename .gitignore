@@ -1,0 +1,2 @@
+# Local act testing secrets
+.github/workflows/act-secrets.env

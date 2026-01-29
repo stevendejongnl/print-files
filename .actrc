@@ -1,0 +1,14 @@
+# Act configuration for local GitHub Actions testing
+# See: https://github.com/nektos/act
+
+# Use full Ubuntu image that includes all common tools
+-P ubuntu-latest=catthehacker/ubuntu:full-latest
+
+# Ensure correct architecture
+--container-architecture linux/amd64
+
+# Reuse containers for faster runs
+--reuse
+
+# Show verbose output for debugging
+--verbose

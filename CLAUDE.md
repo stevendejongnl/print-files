@@ -950,6 +950,72 @@ The workflow automatically creates `projects.json` entries:
 - Both workflows work together: STL generation → Gallery sync
 - Workflow includes `[skip ci]` to prevent infinite loops
 
+### Local Testing with act
+
+You can test GitHub Actions workflows locally before pushing using `act`. This enables fast iteration without consuming GitHub Actions minutes or waiting for CI runs.
+
+**What is act?**
+- Runs GitHub Actions workflows locally using Docker containers
+- Test workflows before pushing to GitHub
+- Debug workflow issues faster
+- Save GitHub Actions minutes
+
+**Prerequisites:**
+- Docker must be running
+- Install `act`: `brew install act` (macOS) or see https://github.com/nektos/act
+
+**Usage examples:**
+
+```bash
+# Test G-code generation with specific profile
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --input profile=pla-plus
+
+# Test G-code generation with all profiles
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --input profile=all
+
+# Test STL/PNG generation
+act push -W .github/workflows/generate-stl-png.yml
+
+# Test web gallery sync
+act push -W .github/workflows/sync-web-gallery.yml
+```
+
+**Typical local testing workflow:**
+
+```bash
+# 1. Make changes to workflow file
+vim .github/workflows/generate-gcode.yml
+
+# 2. Test locally before pushing
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --input profile=pla-plus
+
+# 3. If successful, push to GitHub
+git add .github/workflows/generate-gcode.yml
+git commit -m "Improve workflow [description]"
+git push
+```
+
+**Limitations:**
+- First run downloads ~10GB Docker image
+- Some GitHub-specific features may behave differently
+- Commit/push operations won't affect remote repository
+- Always verify critical changes on GitHub Actions after merging
+
+**Troubleshooting:**
+```bash
+# "Cannot connect to Docker daemon"
+sudo systemctl start docker
+
+# "Permission denied"
+sudo usermod -aG docker $USER
+# Log out and back in
+
+# Run with verbose output for debugging
+act workflow_dispatch -W .github/workflows/generate-gcode.yml --verbose
+```
+
+For more details, see `scripts/README.md` → "Local Testing with act"
+
 ### Best Practices with Automation
 
 **Do:**
@@ -961,6 +1027,7 @@ The workflow automatically creates `projects.json` entries:
 - ✅ Pull latest changes after GitHub Actions runs
 - ✅ Use local scripts for quick iteration during development
 - ✅ Customize filament profiles in `profiles/` for your printer
+- ✅ Test workflow changes locally with `act` before pushing
 
 **Don't:**
 - ❌ Manually export and commit STL/PNG alongside `.scad` changes
@@ -970,6 +1037,7 @@ The workflow automatically creates `projects.json` entries:
 - ❌ Commit large STL files if `.scad` source is available
 - ❌ Edit G-code files directly (regenerate from profiles instead)
 - ❌ Ignore workflow failures (check Actions tab for errors)
+- ❌ Push workflow changes without testing locally first
 
 ### Workflow Integration
 

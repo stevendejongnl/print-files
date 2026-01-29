@@ -32,61 +32,64 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Cache Cura AppImage
+        uses: actions/cache@v4
+        with:
+          path: /tmp/UltiMaker-Cura-5.9.0-linux-X64.AppImage
+          key: cura-appimage-5.9.0
+
       - name: Install CuraEngine
         id: cura
         run: |
-          echo "Installing CuraEngine from system packages..."
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq curaengine > /dev/null 2>&1
+          echo "Setting up CuraEngine from Cura AppImage..."
 
-          # Verify installation
-          if ! command -v CuraEngine &> /dev/null; then
-            echo "CuraEngine not found in system packages, trying Cura AppImage..."
+          CURA_VERSION="5.9.0"
+          APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
+          APPIMAGE_PATH="/tmp/${APPIMAGE}"
 
-            CURA_VERSION="5.9.0"
-            APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
-            APPIMAGE_PATH="/tmp/${APPIMAGE}"
-
+          # Download AppImage if not cached
+          if [ ! -f "$APPIMAGE_PATH" ]; then
             echo "Downloading Cura ${CURA_VERSION} AppImage..."
             curl -sL "https://github.com/Ultimaker/Cura/releases/download/${CURA_VERSION}/${APPIMAGE}" \
               -o "$APPIMAGE_PATH"
-
             chmod +x "$APPIMAGE_PATH"
-            echo "Extracting CuraEngine and definitions..."
-            cd /tmp && "$APPIMAGE_PATH" --appimage-extract >/dev/null 2>&1
-
-            # Locate CuraEngine binary
-            CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f | head -1)
-            if [ -z "$CURA_ENGINE" ]; then
-              echo "Error: CuraEngine binary not found in AppImage"
-              exit 1
-            fi
-            chmod +x "$CURA_ENGINE"
-
-            # Install missing libraries that AppImage needs
-            echo "Installing runtime libraries for AppImage..."
-            sudo apt-get install -y -qq libqt5gui5 libqt5core5a libqt5xml5 > /dev/null 2>&1 || true
           else
-            CURA_ENGINE="CuraEngine"
-            echo "CuraEngine installed successfully"
+            echo "Using cached Cura AppImage"
           fi
 
-          echo "CuraEngine path: $CURA_ENGINE"
+          # Extract AppImage
+          echo "Extracting CuraEngine and definitions..."
+          cd /tmp && "$APPIMAGE_PATH" --appimage-extract >/dev/null 2>&1
 
-          # Try to get definitions from system first, fallback to AppImage
-          DEFS_FILE="/usr/share/cura/resources/definitions/fdmprinter.def.json"
-          if [ ! -f "$DEFS_FILE" ]; then
-            DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f 2>/dev/null | head -1)
+          # Locate CuraEngine binary
+          CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f | head -1)
+          if [ -z "$CURA_ENGINE" ]; then
+            echo "Error: CuraEngine binary not found in AppImage"
+            exit 1
           fi
+          chmod +x "$CURA_ENGINE"
+
+          # Create wrapper script with proper library paths
+          echo "Creating CuraEngine wrapper script..."
+          cat > /tmp/run-curaengine.sh << 'EOF'
+          #!/bin/bash
+          export LD_LIBRARY_PATH="/tmp/squashfs-root/lib:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+          export QT_QPA_PLATFORM_PLUGIN_PATH="/tmp/squashfs-root/usr/lib/x86_64-linux-gnu/qt5/plugins"
+          exec /tmp/squashfs-root/usr/bin/CuraEngine "$@"
+          EOF
+          chmod +x /tmp/run-curaengine.sh
+
+          # Get definitions from AppImage
+          DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f 2>/dev/null | head -1)
           if [ ! -f "$DEFS_FILE" ]; then
-            echo "Error: fdmprinter.def.json not found"
+            echo "Error: fdmprinter.def.json not found in AppImage"
             exit 1
           fi
           DEFS_DIR=$(dirname "$DEFS_FILE")
           echo "Found definitions: $DEFS_DIR"
 
           {
-            echo "engine=$CURA_ENGINE"
+            echo "engine=/tmp/run-curaengine.sh"
             echo "definition=$DEFS_FILE"
             echo "search_path=$DEFS_DIR"
           } >> "$GITHUB_OUTPUT"
