@@ -68,16 +68,18 @@ jobs:
             exit 1
           fi
           chmod +x "$CURA_ENGINE"
+          echo "Found CuraEngine at: $CURA_ENGINE"
 
-          # Create wrapper script with proper library paths
+          # Create wrapper script with proper library paths and correct binary path
           echo "Creating CuraEngine wrapper script..."
-          cat > /tmp/run-curaengine.sh << 'EOF'
+          cat > /tmp/run-curaengine.sh << EOF
           #!/bin/bash
-          export LD_LIBRARY_PATH="/tmp/squashfs-root/lib:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="/tmp/squashfs-root/lib:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:\$LD_LIBRARY_PATH"
           export QT_QPA_PLATFORM_PLUGIN_PATH="/tmp/squashfs-root/usr/lib/x86_64-linux-gnu/qt5/plugins"
-          exec /tmp/squashfs-root/usr/bin/CuraEngine "$@"
+          exec "$CURA_ENGINE" "\$@"
           EOF
           chmod +x /tmp/run-curaengine.sh
+          echo "Wrapper script created successfully"
 
           # Get definitions from AppImage
           DEFS_FILE=$(find /tmp/squashfs-root -name "fdmprinter.def.json" -type f 2>/dev/null | head -1)
