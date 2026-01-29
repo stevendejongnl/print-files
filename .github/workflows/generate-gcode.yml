@@ -47,6 +47,10 @@ jobs:
           APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
           APPIMAGE_PATH="/tmp/${APPIMAGE}"
 
+          # Install patchelf for fixing ELF interpreter
+          echo "Installing patchelf..."
+          sudo apt-get update -qq && sudo apt-get install -y -qq patchelf >/dev/null 2>&1
+
           # Download AppImage if not cached
           if [ ! -f "$APPIMAGE_PATH" ]; then
             echo "Downloading Cura ${CURA_VERSION} AppImage..."
@@ -69,6 +73,11 @@ jobs:
           fi
           chmod +x "$CURA_ENGINE"
           echo "Found CuraEngine at: $CURA_ENGINE"
+
+          # Fix ELF interpreter using patchelf
+          echo "Fixing ELF interpreter with patchelf..."
+          patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$CURA_ENGINE"
+          echo "ELF interpreter patched successfully"
 
           # Find all lib directories in the AppImage for comprehensive LD_LIBRARY_PATH
           echo "Building comprehensive library path..."
