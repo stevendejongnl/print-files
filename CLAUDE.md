@@ -42,7 +42,13 @@ print-files/
 ├── scripts/
 │   ├── generate-exports.sh        # Local STL/PNG automation script
 │   ├── generate-gcode.sh          # Local G-code generation script
+│   ├── setup-git-hooks.sh         # Git hooks setup script
+│   ├── validate-yaml.sh           # YAML workflow validation script
 │   └── README.md                  # Scripts documentation
+├── hooks/                         # Git hooks (auto-validation)
+│   ├── pre-commit                 # Validates before committing
+│   ├── pre-push                   # Validates before pushing
+│   └── README.md                  # Hooks documentation
 ├── eB fan Shroud/                 # Complete fan shroud design with LED fixture
 │   ├── eB fan shroud with 5mm straw hat fixture.stl  (953 KB)
 │   └── eB fan shroud with 5mm straw hat fixture.png  (53 KB preview)
@@ -255,6 +261,54 @@ The gallery is configured for GitHub Pages deployment:
 The site will be available at: `https://[username].github.io/[repository-name]/`
 
 **Note:** GitHub Pages requires a **public repository** on free tier.
+
+---
+
+## Getting Started
+
+### Initial Setup (After Cloning)
+
+After cloning this repository, run the git hooks setup script to enable automatic validation:
+
+```bash
+./scripts/setup-git-hooks.sh
+```
+
+**What this does:**
+- Installs pre-commit and pre-push git hooks
+- Configures git to use the project's `hooks/` directory
+- Makes hooks executable
+- Enables automatic workflow validation
+
+**Requirements for full validation:**
+```bash
+# Install shellcheck for embedded shell script linting
+brew install shellcheck          # macOS
+sudo apt-get install shellcheck  # Ubuntu/Debian
+pip install shellcheck-py        # pip
+```
+
+### Git Hooks Overview
+
+The repository includes automatic validation hooks:
+
+**pre-commit hook** (runs before `git commit`)
+- Validates YAML workflow files
+- Runs shellcheck on embedded shell scripts
+- Blocks commit if validation fails
+
+**pre-push hook** (runs before `git push`)
+- Final validation check before pushing
+- Same checks as pre-commit
+- Safety net to catch issues early
+
+**Bypassing hooks** (if absolutely necessary):
+```bash
+git commit --no-verify   # Skip pre-commit validation
+git push --no-verify     # Skip pre-push validation
+```
+
+For more details, see `hooks/README.md`
 
 ---
 
