@@ -84,9 +84,10 @@ jobs:
           # Build comprehensive library path including AppImage root (libArcus.so is there)
           echo "Building comprehensive library path..."
           LIB_PATHS="/tmp/squashfs-root:/tmp/squashfs-root/lib:/tmp/squashfs-root/lib64:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:/tmp/squashfs-root/usr/lib/i386-linux-gnu"
-          for libdir in $(find /tmp/squashfs-root -type d \( -name "lib" -o -name "lib64" -o -name "lib32" \) 2>/dev/null); do
+          # Use while-read for safe find output processing (avoids SC2044 warning)
+          while IFS= read -r -d '' libdir; do
             LIB_PATHS="$LIB_PATHS:$libdir"
-          done
+          done < <(find /tmp/squashfs-root -type d \( -name "lib" -o -name "lib64" -o -name "lib32" \) -print0 2>/dev/null)
 
           # Create wrapper script with environment from AppImage
           echo "Creating CuraEngine wrapper script..."
