@@ -47,6 +47,10 @@ jobs:
           APPIMAGE="UltiMaker-Cura-${CURA_VERSION}-linux-X64.AppImage"
           APPIMAGE_PATH="/tmp/${APPIMAGE}"
 
+          # Install patchelf for fixing ELF interpreter
+          echo "Installing patchelf..."
+          sudo apt-get update -qq && sudo apt-get install -y -qq patchelf >/dev/null 2>&1
+
           # Download AppImage if not cached
           if [ ! -f "$APPIMAGE_PATH" ]; then
             echo "Downloading Cura ${CURA_VERSION} AppImage..."
@@ -61,15 +65,6 @@ jobs:
           echo "Extracting CuraEngine and definitions..."
           cd /tmp && "$APPIMAGE_PATH" --appimage-extract >/dev/null 2>&1
 
-          # Check for AppRun script to get proper environment
-          if [ -f "/tmp/squashfs-root/AppRun" ]; then
-            echo "Found AppRun script - using AppImage's native environment"
-            APPRUN="/tmp/squashfs-root/AppRun"
-          else
-            echo "No AppRun found - using direct binary"
-            APPRUN=""
-          fi
-
           # Locate CuraEngine binary
           CURA_ENGINE=$(find /tmp/squashfs-root -name "CuraEngine" -type f | head -1)
           if [ -z "$CURA_ENGINE" ]; then
@@ -79,13 +74,19 @@ jobs:
           chmod +x "$CURA_ENGINE"
           echo "Found CuraEngine at: $CURA_ENGINE"
 
-          # Find all lib directories in the AppImage for comprehensive LD_LIBRARY_PATH
+          # Fix ELF interpreter: CuraEngine has relative path interpreter that doesn't work
+          # The binary specifies: interpreter lib64/ld-linux-x86-64.so.2 (relative path)
+          # We patch it to: /lib64/ld-linux-x86-64.so.2 (absolute path on system)
+          echo "Fixing ELF interpreter with patchelf..."
+          patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$CURA_ENGINE"
+          echo "ELF interpreter patched successfully"
+
+          # Build comprehensive library path including AppImage root (libArcus.so is there)
           echo "Building comprehensive library path..."
-          LIB_PATHS="/tmp/squashfs-root/lib:/tmp/squashfs-root/lib64:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:/tmp/squashfs-root/usr/lib/i386-linux-gnu"
+          LIB_PATHS="/tmp/squashfs-root:/tmp/squashfs-root/lib:/tmp/squashfs-root/lib64:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:/tmp/squashfs-root/usr/lib/i386-linux-gnu"
           for libdir in $(find /tmp/squashfs-root -type d \( -name "lib" -o -name "lib64" -o -name "lib32" \) 2>/dev/null); do
             LIB_PATHS="$LIB_PATHS:$libdir"
           done
-          echo "Library paths: ${LIB_PATHS:0:200}..."
 
           # Create wrapper script with environment from AppImage
           echo "Creating CuraEngine wrapper script..."
@@ -96,9 +97,6 @@ jobs:
           export QT_PLUGIN_PATH="/tmp/squashfs-root/usr/lib/x86_64-linux-gnu/qt5/plugins:/tmp/squashfs-root/usr/lib/qt5/plugins:$QT_PLUGIN_PATH"
           export QT_QPA_PLATFORM_PLUGIN_PATH="/tmp/squashfs-root/usr/lib/x86_64-linux-gnu/qt5/plugins"
           export PATH="/tmp/squashfs-root/usr/bin:$PATH"
-
-          # Add AppImage libraries to search path
-          export LD_LIBRARY_PATH="/tmp/squashfs-root/lib:/tmp/squashfs-root/lib64:/tmp/squashfs-root/usr/lib:/tmp/squashfs-root/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
           exec "/tmp/squashfs-root/CuraEngine" "$@"
           WRAPPER_EOF
