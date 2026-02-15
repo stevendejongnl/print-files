@@ -2,7 +2,7 @@
   {
     "name": "cam2c-wedge",
     "description": "3D printable design",
-    "stl": "projects/cam2c-wedge/cam2c-wedge.stl",
+    "stl": "projects/cam2c-wedge/Cam2c_wedge.stl",
     "preview": null,
     "scad": null,
     "gcode": null,
