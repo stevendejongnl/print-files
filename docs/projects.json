@@ -1,5 +1,15 @@
 [
   {
+    "name": "cam2c-wedge",
+    "description": "3D printable design",
+    "stl": "projects/cam2c-wedge/cam2c-wedge.stl",
+    "preview": null,
+    "scad": null,
+    "gcode": null,
+    "isPublic": true,
+    "category": "3D Prints"
+  },
+  {
     "name": "car-screen-support",
     "description": "3D printable design",
     "stl": "projects/car-screen-support/car-screen-support.stl",
